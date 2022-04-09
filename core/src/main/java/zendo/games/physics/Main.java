@@ -2,7 +2,8 @@ package zendo.games.physics;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
@@ -15,8 +16,8 @@ import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 
-import static com.badlogic.gdx.Input.*;
-import static com.badlogic.gdx.graphics.VertexAttributes.*;
+import static com.badlogic.gdx.Input.Keys;
+import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
 
 public class Main extends ApplicationAdapter {
 
@@ -137,20 +138,21 @@ public class Main extends ApplicationAdapter {
 		if (!collision) {
 			Instances.ball.transform.translate(0f, -delta, 0f);
 			CollisionObjects.ball.setWorldTransform(Instances.ball.transform);
-			collision = checkCollision();
+			collision = checkCollision(CollisionObjects.ball, CollisionObjects.ground);
 		}
 
 		camController.update();
 	}
 
-	private boolean checkCollision() {
-		var co0 = new CollisionObjectWrapper(CollisionObjects.ball);
-		var co1 = new CollisionObjectWrapper(CollisionObjects.ground);
+	// TODO - several allocations per update, pool some of these types?
+	private boolean checkCollision(btCollisionObject object1, btCollisionObject object2) {
+		var co0 = new CollisionObjectWrapper(object1);
+		var co1 = new CollisionObjectWrapper(object2);
 
 		var ci = new btCollisionAlgorithmConstructionInfo();
 		ci.setDispatcher1(dispatcher);
 
-		var algo = new btSphereBoxCollisionAlgorithm(null, ci, co0.wrapper, co1.wrapper, false);
+		var algo = dispatcher.findAlgorithm(co0.wrapper, co1.wrapper, ci.getManifold(), ebtDispatcherQueryType.BT_CONTACT_POINT_ALGORITHMS);
 
 		var info = new btDispatcherInfo();
 		var result = new btManifoldResult(co0.wrapper, co1.wrapper);
@@ -161,10 +163,10 @@ public class Main extends ApplicationAdapter {
 
 		result.dispose();
 		info.dispose();
-		algo.dispose();
 		ci.dispose();
 		co0.dispose();
 		co1.dispose();
+		dispatcher.freeCollisionAlgorithm(algo.getCPointer());
 
 		return r;
 	}
