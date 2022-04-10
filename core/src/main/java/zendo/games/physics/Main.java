@@ -29,6 +29,11 @@ import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
+	// NOTE - Bullet uses some bits internally, so we start at higher bits
+	private static final short GROUND_FLAG = 1 << 8;
+	private static final short OBJECT_FLAG = 1 << 9;
+	private static final short ALL_FLAG = -1;
+
 	PerspectiveCamera camera;
 	CameraInputController camController;
 
@@ -41,6 +46,8 @@ public class Main extends ApplicationAdapter {
 	Contacts contactListener;
 	btDispatcher dispatcher;
 	btCollisionConfiguration collisionConfig;
+	btBroadphaseInterface broadphase;
+	btCollisionWorld collisionWorld;
 
 	Model scene;
 	GameObject ground;
@@ -99,6 +106,9 @@ public class Main extends ApplicationAdapter {
 		collisionConfig = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
 
+		broadphase = new btDbvtBroadphase();
+		collisionWorld = new btCollisionWorld(dispatcher, broadphase, collisionConfig);
+
 		createScene();
 	}
 
@@ -124,8 +134,7 @@ public class Main extends ApplicationAdapter {
 				obj.transform.trn(0f, -speed * delta, 0f);
 				obj.collisionObject.setWorldTransform(obj.transform);
 
-				// TODO - need to check objects against each other as well
-				checkCollision(obj.collisionObject, ground.collisionObject);
+				collisionWorld.performDiscreteCollisionDetection();
 			}
 		}
 
@@ -139,7 +148,6 @@ public class Main extends ApplicationAdapter {
 		ScreenUtils.clear(Color.SKY, true);
 
 		batch.begin(camera);
-		batch.render(ground, env);
 		batch.render(gameObjects, env);
 		batch.end();
 	}
@@ -149,6 +157,8 @@ public class Main extends ApplicationAdapter {
 		batch.dispose();
 
 		contactListener.dispose();
+		collisionWorld.dispose();
+		broadphase.dispose();
 		collisionConfig.dispose();
 		dispatcher.dispose();
 
@@ -201,10 +211,10 @@ public class Main extends ApplicationAdapter {
 	}
 
 	private void createGameObjectBuilders() {
-		// TODO - this duplicates size parameters from ModelBuilder setup above, easy to get wrong so centralize
+		// TODO - this duplicates size parameters from ModelBuilder setup in createScene(), easy to get wrong so centralize
 		gameObjectBuilders.put(GROUND,   new GameObject.Builder(scene, GROUND.name(),   new btBoxShape(new Vector3(5f, 0.5f, 5f))));
 		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(scene, SPHERE.name(),   new btSphereShape(0.5f)));
-		gameObjectBuilders.put(BOX,      new GameObject.Builder(scene, BOX.name(),      new btBoxShape(new Vector3(1f, 1f, 1f))));
+		gameObjectBuilders.put(BOX,      new GameObject.Builder(scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
 		gameObjectBuilders.put(CONE,     new GameObject.Builder(scene, CONE.name(),     new btConeShape(0.5f, 2f)));
 		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
 		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
@@ -214,6 +224,8 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjects() {
 		ground = gameObjectBuilders.get(GROUND).build();
+		gameObjects.add(ground);
+		collisionWorld.addCollisionObject(ground.collisionObject, GROUND_FLAG, ALL_FLAG);
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {
@@ -230,35 +242,7 @@ public class Main extends ApplicationAdapter {
 		object.collisionObject.setUserValue(gameObjects.size);
 		object.collisionObject.setCollisionFlags(object.collisionObject.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 		gameObjects.add(object);
-	}
-
-	// TODO - several allocations per update, pool some of these types?
-	private boolean checkCollision(btCollisionObject object1, btCollisionObject object2) {
-		var co0 = new CollisionObjectWrapper(object1);
-		var co1 = new CollisionObjectWrapper(object2);
-
-		var ci = new btCollisionAlgorithmConstructionInfo();
-		ci.setDispatcher1(dispatcher);
-
-		var algo = dispatcher.findAlgorithm(
-				co0.wrapper, co1.wrapper, ci.getManifold(),
-				ebtDispatcherQueryType.BT_CONTACT_POINT_ALGORITHMS);
-
-		var info = new btDispatcherInfo();
-		var result = new btManifoldResult(co0.wrapper, co1.wrapper);
-
-		algo.processCollision(co0.wrapper, co1.wrapper, info, result);
-
-		var r = result.getPersistentManifold().getNumContacts() > 0;
-
-		result.dispose();
-		info.dispose();
-		ci.dispose();
-		co0.dispose();
-		co1.dispose();
-		dispatcher.freeCollisionAlgorithm(algo.getCPointer());
-
-		return r;
+		collisionWorld.addCollisionObject(object.collisionObject, OBJECT_FLAG, GROUND_FLAG);
 	}
 
 }
