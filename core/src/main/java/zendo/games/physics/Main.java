@@ -3,25 +3,29 @@ package zendo.games.physics;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.g3d.*;
+import com.badlogic.gdx.graphics.g3d.Environment;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.BulletBase;
 import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
-import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
-import lombok.RequiredArgsConstructor;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
@@ -34,15 +38,16 @@ public class Main extends ApplicationAdapter {
 	ColorAttribute ambientLightAttrib;
 	DirectionalLight directionalLight;
 
+	Contacts contactListener;
 	btDispatcher dispatcher;
 	btCollisionConfiguration collisionConfig;
 
+	Model scene;
+	GameObject ground;
 	final Array<GameObject> gameObjects = new Array<>();
-	final ArrayMap<String, GameObject.Builder> builders = new ArrayMap<>();
-	final Array<String> objectKeys = new Array<>();
-	Contacts contactListener;
+	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-	final float MAX_SPAWN_TIME = 1.5f;
+	final float MAX_SPAWN_TIME = 0.5f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	// ------------------------------------------------------------------------
@@ -55,59 +60,10 @@ public class Main extends ApplicationAdapter {
 		public static final int height = 720;
 	}
 
-	public static class Models {
-		public static final Array<Model> all = new Array<>();
-		public static Model ball;
-		public static Model ground;
-	}
-
-	public static class CollisionShapes {
-		public static final Array<btCollisionShape> all = new Array<>();
-		public static btCollisionShape ball;
-		public static btCollisionShape ground;
-	}
-
-	// TODO - should the entire scene be a single model and the various components just be nodes in that model?
-
-	public static class GameObject extends ModelInstance implements Disposable {
-
-		public final btCollisionObject body;
-
-		public boolean moving;
-
-		public GameObject(Model model, btCollisionShape shape) {
-			super(model);
-			body = new btCollisionObject();
-			body.setCollisionShape(shape);
-		}
-
-		@Override
-		public void dispose() {
-			body.dispose();
-		}
-
-		@RequiredArgsConstructor
-		public static class Builder implements Disposable {
-
-			public final Model model;
-			public final btCollisionShape shape;
-
-			public GameObject build() {
-				return new GameObject(model, shape);
-			}
-
-			@Override
-			public void dispose() {
-				shape.dispose();
-			}
-
-		}
-
-	}
-
+	// TODO - need to bounce against each other rather than just freezing in place
 	public class Contacts extends ContactListener {
 		@Override
-		public boolean onContactAdded (int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
+		public boolean onContactAdded(int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
 			gameObjects.get(userValue0).moving = false;
 			gameObjects.get(userValue1).moving = false;
 			return true;
@@ -115,7 +71,7 @@ public class Main extends ApplicationAdapter {
 	}
 
 	// ------------------------------------------------------------------------
-	// Methods
+	// Lifecycle Methods
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -143,40 +99,7 @@ public class Main extends ApplicationAdapter {
 		collisionConfig = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
 
-		createGameObjects();
-	}
-
-	private void createGameObjects() {
-		// models
-		var builder = new ModelBuilder();
-		var attribs = Usage.Position | Usage.ColorPacked | Usage.Normal;
-		var ballMaterial = new Material(ColorAttribute.createDiffuse(Color.RED));
-		var groundMaterial = new Material(ColorAttribute.createDiffuse(Color.GREEN));
-
-		Models.ball = builder.createSphere(1f, 1f, 1f, 10, 10, ballMaterial, attribs);
-		Models.ground = builder.createBox(5f, 1f, 5f, groundMaterial, attribs);
-		Models.all.addAll(Models.ball, Models.ground);
-
-		// collision shapes
-		CollisionShapes.ball = new btSphereShape(0.5f);
-		CollisionShapes.ground = new btBoxShape(new Vector3(2.5f, 0.5f, 2.5f));
-
-		CollisionShapes.all.addAll(CollisionShapes.ball, CollisionShapes.ground);
-
-		// populate game object builders
-		objectKeys.addAll("ball"); // ignore ground for random object generation
-		builders.put("ball", new GameObject.Builder(Models.ball, CollisionShapes.ball));
-		builders.put("ground", new GameObject.Builder(Models.ground, CollisionShapes.ground));
-
-		// create game objects
-		// NOTE: important to add the ground first, as we'll be referencing it by gameObjects.first() later
-		var ground = builders.get("ground").build();
-		gameObjects.add(ground);
-
-		int numBalls = 5;
-		for (int i = 0; i < numBalls; i++) {
-			spawnObject();
-		}
+		createScene();
 	}
 
 	public void update() {
@@ -197,26 +120,115 @@ public class Main extends ApplicationAdapter {
 			var obj = gameObjects.get(i);
 
 			if (obj.moving) {
+				// TODO - add transform method wrappers to GameObject so it automatically sets collision object world transform after any transform operation
 				obj.transform.trn(0f, -speed * delta, 0f);
-				obj.body.setWorldTransform(obj.transform);
+				obj.collisionObject.setWorldTransform(obj.transform);
 
-				var ground = gameObjects.first();
-				checkCollision(obj.body, ground.body);
+				// TODO - need to check objects against each other as well
+				checkCollision(obj.collisionObject, ground.collisionObject);
 			}
 		}
 
 		camController.update();
 	}
 
+	@Override
+	public void render() {
+		update();
+
+		ScreenUtils.clear(Color.SKY, true);
+
+		batch.begin(camera);
+		batch.render(ground, env);
+		batch.render(gameObjects, env);
+		batch.end();
+	}
+
+	@Override
+	public void dispose() {
+		batch.dispose();
+
+		contactListener.dispose();
+		collisionConfig.dispose();
+		dispatcher.dispose();
+
+		gameObjects.forEach(GameObject::dispose);
+		gameObjectBuilders.values().forEach(GameObject.Builder::dispose);
+
+		scene.dispose();
+	}
+
+	// ------------------------------------------------------------------------
+	// Implementation Methods
+	// ------------------------------------------------------------------------
+
+	private void createScene() {
+		var builder = new ModelBuilder();
+		builder.begin();
+		{
+			MeshPartBuilder meshPartBuilder;
+
+			var attribs = Usage.Position | Usage.ColorPacked | Usage.Normal;
+
+			// TODO - replace ground node with terrain mesh
+			builder.node().id = GROUND.name();
+			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.RED)));
+			BoxShapeBuilder.build(meshPartBuilder, 5f, 1f, 5f);
+
+			builder.node().id = SPHERE.name();
+			meshPartBuilder = builder.part(SPHERE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.GREEN)));
+			SphereShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10, 10);
+
+			builder.node().id = BOX.name();
+			meshPartBuilder = builder.part(BOX.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.BLUE)));
+			BoxShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f);
+
+			builder.node().id = CONE.name();
+			meshPartBuilder = builder.part(CONE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.YELLOW)));
+			ConeShapeBuilder.build(meshPartBuilder, 1f, 2f, 1f, 10);
+
+			builder.node().id = CAPSULE.name();
+			meshPartBuilder = builder.part(CAPSULE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.CYAN)));
+			CapsuleShapeBuilder.build(meshPartBuilder, 0.5f, 2f, 10);
+
+			builder.node().id = CYLINDER.name();
+			meshPartBuilder = builder.part(CYLINDER.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.MAGENTA)));
+			CylinderShapeBuilder.build(meshPartBuilder, 1f, 2f, 1f, 10);
+		}
+		scene = builder.end();
+
+		createGameObjectBuilders();
+	}
+
+	private void createGameObjectBuilders() {
+		// TODO - this duplicates size parameters from ModelBuilder setup above, easy to get wrong so centralize
+		gameObjectBuilders.put(GROUND,   new GameObject.Builder(scene, GROUND.name(),   new btBoxShape(new Vector3(5f, 0.5f, 5f))));
+		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(scene, SPHERE.name(),   new btSphereShape(0.5f)));
+		gameObjectBuilders.put(BOX,      new GameObject.Builder(scene, BOX.name(),      new btBoxShape(new Vector3(1f, 1f, 1f))));
+		gameObjectBuilders.put(CONE,     new GameObject.Builder(scene, CONE.name(),     new btConeShape(0.5f, 2f)));
+		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
+		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
+
+		createGameObjects();
+	}
+
+	private void createGameObjects() {
+		ground = gameObjectBuilders.get(GROUND).build();
+
+		int numStartingObjects = 5;
+		for (int i = 0; i < numStartingObjects; i++) {
+			spawnObject();
+		}
+	}
+
 	private void spawnObject() {
-		var random = objectKeys.get(MathUtils.random(0, objectKeys.size - 1));
-		var object = builders.get(random).build();
+		var object = gameObjectBuilders.get(GameObject.Type.random()).build();
 		object.moving = true;
 		object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
-		object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(8f, 10f), MathUtils.random(-2.5f, 2.5f));
-		object.body.setWorldTransform(object.transform);
-		object.body.setUserValue(gameObjects.size);
-		object.body.setCollisionFlags(object.body.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+		object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(10, 14f), MathUtils.random(-2.5f, 2.5f));
+		object.collisionObject.setWorldTransform(object.transform);
+		object.collisionObject.setUserValue(gameObjects.size);
+		object.collisionObject.setCollisionFlags(object.collisionObject.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 		gameObjects.add(object);
 	}
 
@@ -228,7 +240,9 @@ public class Main extends ApplicationAdapter {
 		var ci = new btCollisionAlgorithmConstructionInfo();
 		ci.setDispatcher1(dispatcher);
 
-		var algo = dispatcher.findAlgorithm(co0.wrapper, co1.wrapper, ci.getManifold(), ebtDispatcherQueryType.BT_CONTACT_POINT_ALGORITHMS);
+		var algo = dispatcher.findAlgorithm(
+				co0.wrapper, co1.wrapper, ci.getManifold(),
+				ebtDispatcherQueryType.BT_CONTACT_POINT_ALGORITHMS);
 
 		var info = new btDispatcherInfo();
 		var result = new btManifoldResult(co0.wrapper, co1.wrapper);
@@ -245,30 +259,6 @@ public class Main extends ApplicationAdapter {
 		dispatcher.freeCollisionAlgorithm(algo.getCPointer());
 
 		return r;
-	}
-
-	@Override
-	public void render() {
-		update();
-
-		ScreenUtils.clear(Color.SKY, true);
-
-		batch.begin(camera);
-		batch.render(gameObjects, env);
-		batch.end();
-	}
-
-	@Override
-	public void dispose() {
-		Models.all.forEach(Model::dispose);
-		CollisionShapes.all.forEach(BulletBase::dispose);
-		collisionConfig.dispose();
-		dispatcher.dispose();
-		batch.dispose();
-
-		contactListener.dispose();
-		gameObjects.forEach(GameObject::dispose);
-		builders.values().forEach(GameObject.Builder::dispose);
 	}
 
 }
