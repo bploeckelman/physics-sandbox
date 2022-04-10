@@ -37,7 +37,12 @@ public class Main extends ApplicationAdapter {
 	btDispatcher dispatcher;
 	btCollisionConfiguration collisionConfig;
 
-	Array<GameObject> gameObjects = new Array<>();
+	final Array<GameObject> gameObjects = new Array<>();
+	final ArrayMap<String, GameObject.Builder> builders = new ArrayMap<>();
+	final Array<String> objectKeys = new Array<>();
+
+	final float MAX_SPAWN_TIME = 1.5f;
+	float spawnTime = MAX_SPAWN_TIME;
 
 	// ------------------------------------------------------------------------
 	// Data structures
@@ -99,9 +104,6 @@ public class Main extends ApplicationAdapter {
 
 	}
 
-	final ArrayMap<String, GameObject.Builder> builders = new ArrayMap<>();
-
-
 	// ------------------------------------------------------------------------
 	// Methods
 	// ------------------------------------------------------------------------
@@ -151,6 +153,7 @@ public class Main extends ApplicationAdapter {
 		CollisionShapes.all.addAll(CollisionShapes.ball, CollisionShapes.ground);
 
 		// populate game object builders
+		objectKeys.addAll("ball"); // ignore ground for random object generation
 		builders.put("ball", new GameObject.Builder(Models.ball, CollisionShapes.ball));
 		builders.put("ground", new GameObject.Builder(Models.ground, CollisionShapes.ground));
 
@@ -176,19 +179,37 @@ public class Main extends ApplicationAdapter {
 			Gdx.app.exit();
 		}
 
+		spawnTime -= delta;
+		if (spawnTime <= 0) {
+			spawnTime = MAX_SPAWN_TIME;
+			spawnObject();
+		}
+
 		final float speed = 9.8f;
-		for (var obj : gameObjects) {
+		for (int i = gameObjects.size - 1; i >= 1; i--) {
+			var obj = gameObjects.get(i);
 			if (obj.moving) {
 				obj.transform.trn(0f, -speed * delta, 0f);
 				obj.body.setWorldTransform(obj.transform);
 				var ground = gameObjects.first();
 				if (checkCollision(obj.body, ground.body)) {
 					obj.moving = false;
+//					gameObjects.removeIndex(i);
 				}
 			}
 		}
 
 		camController.update();
+	}
+
+	private void spawnObject() {
+		var random = objectKeys.get(MathUtils.random(0, objectKeys.size - 1));
+		var object = builders.get(random).build();
+		object.moving = true;
+		object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
+		object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(8f, 10f), MathUtils.random(-2.5f, 2.5f));
+		object.body.setWorldTransform(object.transform);
+		gameObjects.add(object);
 	}
 
 	// TODO - several allocations per update, pool some of these types?
