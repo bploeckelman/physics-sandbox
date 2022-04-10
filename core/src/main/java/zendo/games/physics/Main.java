@@ -40,6 +40,7 @@ public class Main extends ApplicationAdapter {
 	final Array<GameObject> gameObjects = new Array<>();
 	final ArrayMap<String, GameObject.Builder> builders = new ArrayMap<>();
 	final Array<String> objectKeys = new Array<>();
+	Contacts contactListener;
 
 	final float MAX_SPAWN_TIME = 1.5f;
 	float spawnTime = MAX_SPAWN_TIME;
@@ -104,6 +105,15 @@ public class Main extends ApplicationAdapter {
 
 	}
 
+	public class Contacts extends ContactListener {
+		@Override
+		public boolean onContactAdded (int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
+			gameObjects.get(userValue0).moving = false;
+			gameObjects.get(userValue1).moving = false;
+			return true;
+		}
+	}
+
 	// ------------------------------------------------------------------------
 	// Methods
 	// ------------------------------------------------------------------------
@@ -111,6 +121,7 @@ public class Main extends ApplicationAdapter {
 	@Override
 	public void create() {
 		Bullet.init();
+		contactListener = new Contacts();
 
 		batch = new ModelBatch();
 
@@ -164,11 +175,7 @@ public class Main extends ApplicationAdapter {
 
 		int numBalls = 5;
 		for (int i = 0; i < numBalls; i++) {
-			var ball = builders.get("ball").build();
-			ball.moving = true;
-			ball.transform.setToTranslation(MathUtils.random(-2.5f, 2.5f), MathUtils.random(6f, 10f), MathUtils.random(-2.5f, 2.5f));
-			ball.body.setWorldTransform(ball.transform);
-			gameObjects.add(ball);
+			spawnObject();
 		}
 	}
 
@@ -188,14 +195,13 @@ public class Main extends ApplicationAdapter {
 		final float speed = 9.8f;
 		for (int i = gameObjects.size - 1; i >= 1; i--) {
 			var obj = gameObjects.get(i);
+
 			if (obj.moving) {
 				obj.transform.trn(0f, -speed * delta, 0f);
 				obj.body.setWorldTransform(obj.transform);
+
 				var ground = gameObjects.first();
-				if (checkCollision(obj.body, ground.body)) {
-					obj.moving = false;
-//					gameObjects.removeIndex(i);
-				}
+				checkCollision(obj.body, ground.body);
 			}
 		}
 
@@ -209,6 +215,8 @@ public class Main extends ApplicationAdapter {
 		object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
 		object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(8f, 10f), MathUtils.random(-2.5f, 2.5f));
 		object.body.setWorldTransform(object.transform);
+		object.body.setUserValue(gameObjects.size);
+		object.body.setCollisionFlags(object.body.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 		gameObjects.add(object);
 	}
 
@@ -258,6 +266,7 @@ public class Main extends ApplicationAdapter {
 		dispatcher.dispose();
 		batch.dispose();
 
+		contactListener.dispose();
 		gameObjects.forEach(GameObject::dispose);
 		builders.values().forEach(GameObject.Builder::dispose);
 	}
