@@ -19,6 +19,10 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.collision.*;
+import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
+import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
+import com.badlogic.gdx.physics.bullet.dynamics.btDynamicsWorld;
+import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -45,9 +49,10 @@ public class Main extends ApplicationAdapter {
 
 	Contacts contactListener;
 	btDispatcher dispatcher;
+	btConstraintSolver constraintSolver;
 	btCollisionConfiguration collisionConfig;
 	btBroadphaseInterface broadphase;
-	btCollisionWorld collisionWorld;
+	btDynamicsWorld dynamicsWorld;
 
 	Model scene;
 	GameObject ground;
@@ -67,12 +72,21 @@ public class Main extends ApplicationAdapter {
 		public static final int height = 720;
 	}
 
-	// TODO - need to bounce against each other rather than just freezing in place
 	public class Contacts extends ContactListener {
 		@Override
 		public boolean onContactAdded(int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
-			gameObjects.get(userValue0).moving = false;
-			gameObjects.get(userValue1).moving = false;
+			var object0 = gameObjects.get(userValue0);
+			var object1 = gameObjects.get(userValue1);
+			if (userValue0 != 0) {
+				((ColorAttribute) object0.materials.first()
+						.get(ColorAttribute.Diffuse))
+						.color.set(1f, 1f, 1f, 0.2f);
+			}
+			if (userValue1 != 0) {
+				((ColorAttribute) object1.materials.first()
+						.get(ColorAttribute.Diffuse))
+						.color.set(1f, 1f, 1f, 0.2f);
+			}
 			return true;
 		}
 	}
@@ -105,9 +119,10 @@ public class Main extends ApplicationAdapter {
 
 		collisionConfig = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
-
 		broadphase = new btDbvtBroadphase();
-		collisionWorld = new btCollisionWorld(dispatcher, broadphase, collisionConfig);
+		constraintSolver = new btSequentialImpulseConstraintSolver();
+		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
+		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
 
 		createScene();
 	}
@@ -125,17 +140,11 @@ public class Main extends ApplicationAdapter {
 			spawnObject();
 		}
 
-		final float speed = 9.8f;
-		for (int i = gameObjects.size - 1; i >= 1; i--) {
-			var obj = gameObjects.get(i);
+		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
-			if (obj.moving) {
-				// TODO - add transform method wrappers to GameObject so it automatically sets collision object world transform after any transform operation
-				obj.transform.trn(0f, -speed * delta, 0f);
-				obj.collisionObject.setWorldTransform(obj.transform);
-
-				collisionWorld.performDiscreteCollisionDetection();
-			}
+		// set the game object's model instance's transform based on Bullet's rigid body transform
+		for (var object : gameObjects) {
+			object.rigidBody.getWorldTransform(object.transform);
 		}
 
 		camController.update();
@@ -154,18 +163,23 @@ public class Main extends ApplicationAdapter {
 
 	@Override
 	public void dispose() {
-		batch.dispose();
-
-		contactListener.dispose();
-		collisionWorld.dispose();
-		broadphase.dispose();
-		collisionConfig.dispose();
-		dispatcher.dispose();
-
 		gameObjects.forEach(GameObject::dispose);
 		gameObjectBuilders.values().forEach(GameObject.Builder::dispose);
 
+		gameObjects.clear();
+		gameObjectBuilders.clear();
+
+		// NOTE - order of disposal matters for the Bullet types since they hold native pointers via JNI
+		dynamicsWorld.dispose();
+		broadphase.dispose();
+		dispatcher.dispose();
+		collisionConfig.dispose();
+		constraintSolver.dispose();
+
+		contactListener.dispose();
+
 		scene.dispose();
+		batch.dispose();
 	}
 
 	// ------------------------------------------------------------------------
@@ -212,12 +226,12 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjectBuilders() {
 		// TODO - this duplicates size parameters from ModelBuilder setup in createScene(), easy to get wrong so centralize
-		gameObjectBuilders.put(GROUND,   new GameObject.Builder(scene, GROUND.name(),   new btBoxShape(new Vector3(5f, 0.5f, 5f))));
-		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(scene, SPHERE.name(),   new btSphereShape(0.5f)));
-		gameObjectBuilders.put(BOX,      new GameObject.Builder(scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
-		gameObjectBuilders.put(CONE,     new GameObject.Builder(scene, CONE.name(),     new btConeShape(0.5f, 2f)));
-		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
-		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
+		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBoxShape(new Vector3(2.5f, 0.5f, 2.5f))));
+		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(1f, scene, SPHERE.name(),   new btSphereShape(0.5f)));
+		gameObjectBuilders.put(BOX,      new GameObject.Builder(1f, scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
+		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE.name(),     new btConeShape(0.5f, 2f)));
+		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(1f, scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
+		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(1f, scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
 
 		createGameObjects();
 	}
@@ -225,7 +239,7 @@ public class Main extends ApplicationAdapter {
 	private void createGameObjects() {
 		ground = gameObjectBuilders.get(GROUND).build();
 		gameObjects.add(ground);
-		collisionWorld.addCollisionObject(ground.collisionObject, GROUND_FLAG, ALL_FLAG);
+		dynamicsWorld.addRigidBody(ground.rigidBody, GROUND_FLAG, ALL_FLAG);
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {
@@ -235,14 +249,15 @@ public class Main extends ApplicationAdapter {
 
 	private void spawnObject() {
 		var object = gameObjectBuilders.get(GameObject.Type.random()).build();
-		object.moving = true;
-		object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
-		object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(10, 14f), MathUtils.random(-2.5f, 2.5f));
-		object.collisionObject.setWorldTransform(object.transform);
-		object.collisionObject.setUserValue(gameObjects.size);
-		object.collisionObject.setCollisionFlags(object.collisionObject.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+		{
+			object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
+			object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(10, 14f), MathUtils.random(-2.5f, 2.5f));
+			object.rigidBody.setWorldTransform(object.transform);
+			object.rigidBody.setUserValue(gameObjects.size);
+			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+		}
 		gameObjects.add(object);
-		collisionWorld.addCollisionObject(object.collisionObject, OBJECT_FLAG, GROUND_FLAG);
+		dynamicsWorld.addRigidBody(object.rigidBody, OBJECT_FLAG, GROUND_FLAG);
 	}
 
 }

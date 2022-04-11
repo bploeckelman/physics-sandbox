@@ -1,10 +1,13 @@
 package zendo.games.physics;
 
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
+import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.utils.Disposable;
 
 /**
@@ -25,40 +28,65 @@ public class GameObject extends ModelInstance implements Disposable {
     }
 
     public final Model model;
-    public final btCollisionShape collisionShape;
-    public final btCollisionObject collisionObject;
+    public final btRigidBody rigidBody;
 
-    public boolean moving = false;
-
-    private GameObject(Model model, String nodeId, btCollisionShape collisionShape) {
+    private GameObject(Model model, String nodeId, btRigidBody.btRigidBodyConstructionInfo constructionInfo) {
         super(model, nodeId);
         this.model = model;
-        this.collisionShape = collisionShape;
-        this.collisionObject = new btCollisionObject();
-        this.collisionObject.setCollisionShape(collisionShape);
+        this.rigidBody = new btRigidBody(constructionInfo);
+
+        // add a blending attribute so alpha in the diffuse attribute is respected
+        this.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));
     }
 
     @Override
     public void dispose() {
-        collisionObject.dispose();
+        rigidBody.dispose();
     }
 
     // ------------------------------------------------------------------------
 
     /**
-     * Convenience class for building GameObjects simply.
-     * Holds ownership over it's btCollisionShape and must dispose of it when it's no longer used.
-     * @param model the parent Model that this GameObject is built from
-     * @param nodeId the Node identifier string for which MeshPart of the parent Model to create an instance from
-     * @param collisionShape the Bullet collision shape to use for the constructed GameObject
+     * Convenience class for easily building GameObjects and their rendering and physics components.
+     * Holds ownership over it's collision shape and rigid body construction info
+     * and therefore it must be disposed of when it's no longer used.
      */
-    public record Builder(Model model, String nodeId, btCollisionShape collisionShape) implements Disposable {
-        public GameObject build() {
-            return new GameObject(model, nodeId, collisionShape);
+    public static class Builder implements Disposable {
+        private static final Vector3 localInertia = new Vector3();
+
+        private final Model model;
+        private final String nodeId;
+        private final btCollisionShape collisionShape;
+        private final btRigidBody.btRigidBodyConstructionInfo constructionInfo;
+
+        /**
+         * @param mass the mass of the constructed GameObject's physics component
+         * @param model the parent Model that this GameObject is built from
+         * @param nodeId the Node identifier string for which MeshPart of the parent Model to create an instance from
+         * @param collisionShape the Bullet collision shape to use for the constructed GameObject
+         */
+        public Builder(float mass, Model model, String nodeId, btCollisionShape collisionShape) {
+            this.model = model;
+            this.nodeId = nodeId;
+            this.collisionShape = collisionShape;
+            Builder.localInertia.setZero();
+            if (mass > 0f) {
+                collisionShape.calculateLocalInertia(mass, Builder.localInertia);
+            }
+            this.constructionInfo = new btRigidBody.btRigidBodyConstructionInfo(mass, null, collisionShape, Builder.localInertia);
         }
+
+        /**
+         * @return a new GameObject with the parameters from this Builder
+         */
+        public GameObject build() {
+            return new GameObject(model, nodeId, constructionInfo);
+        }
+
         @Override
         public void dispose() {
             collisionShape.dispose();
+            constructionInfo.dispose();
         }
     }
 
