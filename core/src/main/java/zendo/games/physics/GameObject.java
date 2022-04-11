@@ -29,11 +29,13 @@ public class GameObject extends ModelInstance implements Disposable {
         }
     }
 
-    private static class MotionState extends btMotionState {
+    private class MotionState extends btMotionState {
         private final Matrix4 transform;
+        private final Vector3 translation;
 
         public MotionState(Matrix4 transform) {
             this.transform = transform;
+            this.translation = new Vector3();
         }
 
         // called by Bullet when it needs to know the current transform of the object
@@ -47,7 +49,12 @@ public class GameObject extends ModelInstance implements Disposable {
         @Override
         public void setWorldTransform(Matrix4 worldTrans) {
             transform.set(worldTrans);
-            // TODO - if object would fall out of the world (y pos < threshold), remove it from the world
+
+            // if object would fall out of the world (y pos < threshold) set is as dead
+            transform.getTranslation(translation);
+            if (translation.y < -10f) {
+                GameObject.this.isAlive = false;
+            }
         }
     }
 
@@ -55,12 +62,15 @@ public class GameObject extends ModelInstance implements Disposable {
     public final btRigidBody rigidBody;
     public final MotionState motionState;
 
+    public boolean isAlive;
+
     private GameObject(Model model, String nodeId, btRigidBody.btRigidBodyConstructionInfo constructionInfo) {
         super(model, nodeId);
         this.model = model;
         this.motionState = new MotionState(transform);
         this.rigidBody = new btRigidBody(constructionInfo);
         this.rigidBody.setMotionState(motionState);
+        this.isAlive = true;
 
         // add a blending attribute so alpha in the diffuse attribute is respected
         this.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));

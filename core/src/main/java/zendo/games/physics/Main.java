@@ -33,11 +33,6 @@ import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
-	// NOTE - Bullet uses some bits internally, so we start at higher bits
-	private static final short GROUND_FLAG = 1 << 8;
-	private static final short OBJECT_FLAG = 1 << 9;
-	private static final short ALL_FLAG = -1;
-
 	PerspectiveCamera camera;
 	CameraInputController camController;
 
@@ -77,16 +72,18 @@ public class Main extends ApplicationAdapter {
 		public boolean onContactAdded(int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
 			var object0 = gameObjects.get(userValue0);
 			var object1 = gameObjects.get(userValue1);
-			if (userValue0 != 0) {
+
+			// NOTE - ground is at index 0, only mark one as contacted if it hits the ground
+			if (userValue1 == 0) {
 				((ColorAttribute) object0.materials.first()
 						.get(ColorAttribute.Diffuse))
 						.color.set(1f, 1f, 1f, 0.2f);
-			}
-			if (userValue1 != 0) {
+			} else if (userValue0 == 0) {
 				((ColorAttribute) object1.materials.first()
 						.get(ColorAttribute.Diffuse))
 						.color.set(1f, 1f, 1f, 0.2f);
 			}
+
 			return true;
 		}
 	}
@@ -141,6 +138,19 @@ public class Main extends ApplicationAdapter {
 		}
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
+
+		// remove dead objects
+		// NOTE - removing from gameObjects breaks the userValues that are used as indices to lookup GameObjects in ContactListener
+		//  so they can't be removed from the gameObjects array for now
+//		for (int i = gameObjects.size - 1; i >= 0; i--) {
+//			var object = gameObjects.get(i);
+//			if (!object.isAlive) {
+//				dynamicsWorld.removeRigidBody(object.rigidBody);
+//				object.isRemoved = true;
+//				object.dispose();
+//				gameObjects.removeIndex(i);
+//			}
+//		}
 
 		camController.update();
 	}
@@ -234,7 +244,7 @@ public class Main extends ApplicationAdapter {
 	private void createGameObjects() {
 		ground = gameObjectBuilders.get(GROUND).build();
 		gameObjects.add(ground);
-		dynamicsWorld.addRigidBody(ground.rigidBody, GROUND_FLAG, ALL_FLAG);
+		dynamicsWorld.addRigidBody(ground.rigidBody);
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {
@@ -252,7 +262,7 @@ public class Main extends ApplicationAdapter {
 			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 		}
 		gameObjects.add(object);
-		dynamicsWorld.addRigidBody(object.rigidBody, OBJECT_FLAG, GROUND_FLAG);
+		dynamicsWorld.addRigidBody(object.rigidBody);
 	}
 
 }
