@@ -5,6 +5,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -33,11 +35,15 @@ import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
+	private static final short OBJECT_FLAG = 1 << 8;
+	private static final short GROUND_FLAG = 1 << 9;
+
 	PerspectiveCamera camera;
 	CameraInputController camController;
 
 	Environment env;
-	ModelBatch batch;
+	ModelBatch modelBatch;
+	SpriteBatch spriteBatch;
 
 	ColorAttribute ambientLightAttrib;
 	DirectionalLight directionalLight;
@@ -57,6 +63,8 @@ public class Main extends ApplicationAdapter {
 	final float MAX_SPAWN_TIME = 0.5f;
 	float spawnTime = MAX_SPAWN_TIME;
 
+	BitmapFont font;
+
 	// ------------------------------------------------------------------------
 	// Data structures
 	// ------------------------------------------------------------------------
@@ -69,19 +77,19 @@ public class Main extends ApplicationAdapter {
 
 	public class Contacts extends ContactListener {
 		@Override
-		public boolean onContactAdded(int userValue0, int partId0, int index0, int userValue1, int partId1, int index1) {
+		public boolean onContactAdded(int userValue0, int partId0, int index0, boolean match0,
+                                      int userValue1, int partId1, int index1, boolean match1) {
 			var object0 = gameObjects.get(userValue0);
 			var object1 = gameObjects.get(userValue1);
 
-			// NOTE - ground is at index 0, only mark one as contacted if it hits the ground
-			if (userValue1 == 0) {
+			if (match0) {
 				((ColorAttribute) object0.materials.first()
 						.get(ColorAttribute.Diffuse))
-						.color.set(1f, 1f, 1f, 0.2f);
-			} else if (userValue0 == 0) {
+						.color.set(1f, 1f, 1f, 0.4f);
+			} else if (match1) {
 				((ColorAttribute) object1.materials.first()
 						.get(ColorAttribute.Diffuse))
-						.color.set(1f, 1f, 1f, 0.2f);
+						.color.set(1f, 1f, 1f, 0.4f);
 			}
 
 			return true;
@@ -97,7 +105,8 @@ public class Main extends ApplicationAdapter {
 		Bullet.init();
 		contactListener = new Contacts();
 
-		batch = new ModelBatch();
+		modelBatch = new ModelBatch();
+		spriteBatch = new SpriteBatch();
 
 		ambientLightAttrib = ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f);
 		directionalLight = new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f);
@@ -120,6 +129,8 @@ public class Main extends ApplicationAdapter {
 		constraintSolver = new btSequentialImpulseConstraintSolver();
 		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
+
+		font = new BitmapFont();
 
 		createScene();
 	}
@@ -161,9 +172,15 @@ public class Main extends ApplicationAdapter {
 
 		ScreenUtils.clear(Color.SKY, true);
 
-		batch.begin(camera);
-		batch.render(gameObjects, env);
-		batch.end();
+		modelBatch.begin(camera);
+		modelBatch.render(gameObjects, env);
+		modelBatch.end();
+
+		spriteBatch.begin();
+		spriteBatch.setColor(Color.BLACK);
+		font.draw(spriteBatch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 10, 20);
+		spriteBatch.setColor(Color.WHITE);
+		spriteBatch.end();
 	}
 
 	@Override
@@ -184,7 +201,8 @@ public class Main extends ApplicationAdapter {
 		contactListener.dispose();
 
 		scene.dispose();
-		batch.dispose();
+		modelBatch.dispose();
+		spriteBatch.dispose();
 	}
 
 	// ------------------------------------------------------------------------
@@ -243,6 +261,10 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjects() {
 		ground = gameObjectBuilders.get(GROUND).build();
+		{
+			ground.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+			ground.rigidBody.setContactCallbackFilter(0);
+		}
 		gameObjects.add(ground);
 		dynamicsWorld.addRigidBody(ground.rigidBody);
 
@@ -260,6 +282,8 @@ public class Main extends ApplicationAdapter {
 			object.rigidBody.proceedToTransform(object.transform);
 			object.rigidBody.setUserValue(gameObjects.size);
 			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+			object.rigidBody.setContactCallbackFlag(OBJECT_FLAG);
+			object.rigidBody.setContactCallbackFilter(GROUND_FLAG);
 		}
 		gameObjects.add(object);
 		dynamicsWorld.addRigidBody(object.rigidBody);
