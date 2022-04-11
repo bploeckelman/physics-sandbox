@@ -60,8 +60,11 @@ public class Main extends ApplicationAdapter {
 	final Array<GameObject> gameObjects = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-	final float MAX_SPAWN_TIME = 0.5f;
+	final float MAX_SPAWN_TIME = 0.1f;
 	float spawnTime = MAX_SPAWN_TIME;
+
+	final float speed = 160f;
+	float angle = 0f;
 
 	BitmapFont font;
 
@@ -85,11 +88,11 @@ public class Main extends ApplicationAdapter {
 			if (match0) {
 				((ColorAttribute) object0.materials.first()
 						.get(ColorAttribute.Diffuse))
-						.color.set(1f, 1f, 1f, 0.4f);
+						.color.set(1f, 1f, 1f, 0.9f);
 			} else if (match1) {
 				((ColorAttribute) object1.materials.first()
 						.get(ColorAttribute.Diffuse))
-						.color.set(1f, 1f, 1f, 0.4f);
+						.color.set(1f, 1f, 1f, 0.9f);
 			}
 
 			return true;
@@ -148,6 +151,10 @@ public class Main extends ApplicationAdapter {
 			spawnObject();
 		}
 
+		// move the ground
+		angle = (angle + delta * speed) % 360f;
+		ground.transform.setTranslation(0, MathUtils.sinDeg(angle) * 2.5f, 0f);
+
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
 		// remove dead objects
@@ -191,8 +198,6 @@ public class Main extends ApplicationAdapter {
 		gameObjects.clear();
 		gameObjectBuilders.clear();
 
-		// NOTE - order of disposal matters for the Bullet types since they hold native pointers via JNI
-		dynamicsWorld.dispose();
 		broadphase.dispose();
 		dispatcher.dispose();
 		collisionConfig.dispose();
@@ -203,6 +208,12 @@ public class Main extends ApplicationAdapter {
 		scene.dispose();
 		modelBatch.dispose();
 		spriteBatch.dispose();
+
+		// TODO - this causes a crash for some reason,
+		//  not a huge deal since this should only
+		//  happen when the application is closing
+		//  but it'd be good to know why and fix it
+		dynamicsWorld.dispose();
 	}
 
 	// ------------------------------------------------------------------------
@@ -262,8 +273,12 @@ public class Main extends ApplicationAdapter {
 	private void createGameObjects() {
 		ground = gameObjectBuilders.get(GROUND).build();
 		{
+			ground.rigidBody.setCollisionFlags(ground.rigidBody.getCollisionFlags()
+					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
 			ground.rigidBody.setContactCallbackFlag(GROUND_FLAG);
 			ground.rigidBody.setContactCallbackFilter(0);
+			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
+			ground.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
 		}
 		gameObjects.add(ground);
 		dynamicsWorld.addRigidBody(ground.rigidBody);
