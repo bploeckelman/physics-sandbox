@@ -142,11 +142,6 @@ public class Main extends ApplicationAdapter {
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
-		// set the game object's model instance's transform based on Bullet's rigid body transform
-		for (var object : gameObjects) {
-			object.rigidBody.getWorldTransform(object.transform);
-		}
-
 		camController.update();
 	}
 
@@ -252,7 +247,7 @@ public class Main extends ApplicationAdapter {
 		{
 			object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
 			object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(10, 14f), MathUtils.random(-2.5f, 2.5f));
-			object.rigidBody.setWorldTransform(object.transform);
+			object.rigidBody.proceedToTransform(object.transform);
 			object.rigidBody.setUserValue(gameObjects.size);
 			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 		}

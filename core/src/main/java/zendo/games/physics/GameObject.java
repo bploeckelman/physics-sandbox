@@ -5,9 +5,11 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import com.badlogic.gdx.physics.bullet.linearmath.btMotionState;
 import com.badlogic.gdx.utils.Disposable;
 
 /**
@@ -27,13 +29,38 @@ public class GameObject extends ModelInstance implements Disposable {
         }
     }
 
+    private static class MotionState extends btMotionState {
+        private final Matrix4 transform;
+
+        public MotionState(Matrix4 transform) {
+            this.transform = transform;
+        }
+
+        // called by Bullet when it needs to know the current transform of the object
+        // eg. when it's added to the world
+        @Override
+        public void getWorldTransform(Matrix4 worldTrans) {
+            worldTrans.set(transform);
+        }
+
+        // called by Bullet when it has transformed a dynamic object
+        @Override
+        public void setWorldTransform(Matrix4 worldTrans) {
+            transform.set(worldTrans);
+            // TODO - if object would fall out of the world (y pos < threshold), remove it from the world
+        }
+    }
+
     public final Model model;
     public final btRigidBody rigidBody;
+    public final MotionState motionState;
 
     private GameObject(Model model, String nodeId, btRigidBody.btRigidBodyConstructionInfo constructionInfo) {
         super(model, nodeId);
         this.model = model;
+        this.motionState = new MotionState(transform);
         this.rigidBody = new btRigidBody(constructionInfo);
+        this.rigidBody.setMotionState(motionState);
 
         // add a blending attribute so alpha in the diffuse attribute is respected
         this.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));
@@ -42,6 +69,7 @@ public class GameObject extends ModelInstance implements Disposable {
     @Override
     public void dispose() {
         rigidBody.dispose();
+        motionState.dispose();
     }
 
     // ------------------------------------------------------------------------
