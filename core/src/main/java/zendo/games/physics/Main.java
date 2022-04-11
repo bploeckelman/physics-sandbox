@@ -58,9 +58,10 @@ public class Main extends ApplicationAdapter {
 	Model scene;
 	GameObject ground;
 	final Array<GameObject> gameObjects = new Array<>();
+	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-	final float MAX_SPAWN_TIME = 0.1f;
+	final float MAX_SPAWN_TIME = 0.01f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -158,17 +159,25 @@ public class Main extends ApplicationAdapter {
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
 		// remove dead objects
-		// NOTE - removing from gameObjects breaks the userValues that are used as indices to lookup GameObjects in ContactListener
-		//  so they can't be removed from the gameObjects array for now
-//		for (int i = gameObjects.size - 1; i >= 0; i--) {
-//			var object = gameObjects.get(i);
-//			if (!object.isAlive) {
-//				dynamicsWorld.removeRigidBody(object.rigidBody);
-//				object.isRemoved = true;
-//				object.dispose();
-//				gameObjects.removeIndex(i);
-//			}
-//		}
+//		Gdx.app.log("Main", "game objects: " + gameObjects.size);
+		toBeRemoved.clear();
+		for (int i = 0; i < gameObjects.size; i++) {
+			var object = gameObjects.get(i);
+			if (!object.isAlive) {
+				dynamicsWorld.removeRigidBody(object.rigidBody);
+				object.dispose();
+				toBeRemoved.add(object);
+			}
+		}
+		gameObjects.removeAll(toBeRemoved, true);
+
+		// NOTE - removing from gameObjects breaks userValues,
+		//  which are indices to lookup GameObjects in ContactListener
+		//  so the userValues need to be updated after removal
+		for (int i = 0; i < gameObjects.size; i++) {
+			var object = gameObjects.get(i);
+			object.rigidBody.setUserValue(i);
+		}
 
 		camController.update();
 	}
@@ -205,6 +214,7 @@ public class Main extends ApplicationAdapter {
 
 		contactListener.dispose();
 
+		font.dispose();
 		scene.dispose();
 		modelBatch.dispose();
 		spriteBatch.dispose();
@@ -213,7 +223,7 @@ public class Main extends ApplicationAdapter {
 		//  not a huge deal since this should only
 		//  happen when the application is closing
 		//  but it'd be good to know why and fix it
-		dynamicsWorld.dispose();
+//		dynamicsWorld.dispose();
 	}
 
 	// ------------------------------------------------------------------------

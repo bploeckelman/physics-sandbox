@@ -50,7 +50,8 @@ public class GameObject extends ModelInstance implements Disposable {
         public void setWorldTransform(Matrix4 worldTrans) {
             transform.set(worldTrans);
 
-            // if object would fall out of the world (y pos < threshold) set is as dead
+            // if object would fall out of the world (y pos < threshold)
+            // set is as dead so it can be cleaned up in Main.update()
             transform.getTranslation(translation);
             if (translation.y < -10f) {
                 GameObject.this.isAlive = false;
