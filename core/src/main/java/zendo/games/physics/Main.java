@@ -8,9 +8,12 @@ import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.*;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.model.MeshPart;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
@@ -27,10 +30,7 @@ import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSol
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
-import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
-
-import java.nio.Buffer;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
@@ -46,6 +46,7 @@ public class Main extends ApplicationAdapter {
 
 	Environment env;
 	ModelBatch modelBatch;
+	ModelBatch debugModelBatch;
 	SpriteBatch spriteBatch;
 	ShapeRenderer shapeRenderer;
 
@@ -75,8 +76,8 @@ public class Main extends ApplicationAdapter {
 	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-//	final float MAX_SPAWN_TIME = 0.01f;
-	final float MAX_SPAWN_TIME = 1f;
+	final float MAX_SPAWN_TIME = 0.1f;
+//	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -93,7 +94,8 @@ public class Main extends ApplicationAdapter {
 		public static final int fov = 67;
 		public static final int width = 1280;
 		public static final int height = 720;
-		public static boolean bulletDebugDraw = true;
+		public static boolean bulletDebugDraw = false;
+		public static boolean wireframeDebugDraw = false;
 	}
 
 	public class Contacts extends ContactListener {
@@ -126,6 +128,12 @@ public class Main extends ApplicationAdapter {
 		Bullet.init();
 
 		modelBatch = new ModelBatch();
+		debugModelBatch = new ModelBatch(new DefaultShaderProvider() {
+			@Override
+			protected Shader createShader(Renderable renderable) {
+				return new WireframeShader(renderable, config);
+			}
+		});
 		spriteBatch = new SpriteBatch();
 		shapeRenderer = new ShapeRenderer();
 
@@ -170,7 +178,10 @@ public class Main extends ApplicationAdapter {
 		if (Gdx.input.isKeyJustPressed(Keys.ESCAPE)) {
 			Gdx.app.exit();
 		}
-		if (Gdx.input.isKeyJustPressed(Keys.TAB)) {
+		if (Gdx.input.isKeyJustPressed(Keys.NUM_1)) {
+			Config.wireframeDebugDraw = !Config.wireframeDebugDraw;
+		}
+		if (Gdx.input.isKeyJustPressed(Keys.NUM_2)) {
 			Config.bulletDebugDraw = !Config.bulletDebugDraw;
 		}
 
@@ -182,30 +193,12 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-		ground.transform.setTranslation(0, MathUtils.sinDeg(angle) * 2.5f, 0f);
+		ground.transform.setTranslation(0, 2f + MathUtils.sinDeg(angle) * 2.5f, 0f);
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
 		// remove dead objects
-//		Gdx.app.log("Main", "game objects: " + gameObjects.size);
-		toBeRemoved.clear();
-		for (int i = 0; i < gameObjects.size; i++) {
-			var object = gameObjects.get(i);
-			if (!object.isAlive) {
-				dynamicsWorld.removeRigidBody(object.rigidBody);
-				object.dispose();
-				toBeRemoved.add(object);
-			}
-		}
-		gameObjects.removeAll(toBeRemoved, true);
-
-		// NOTE - removing from gameObjects breaks userValues,
-		//  which are indices to lookup GameObjects in ContactListener
-		//  so the userValues need to be updated after removal
-		for (int i = 0; i < gameObjects.size; i++) {
-			var object = gameObjects.get(i);
-			object.rigidBody.setUserValue(i);
-		}
+		removeDeadGameObjects();
 
 		camController.update();
 	}
@@ -216,10 +209,17 @@ public class Main extends ApplicationAdapter {
 
 		ScreenUtils.clear(Color.SKY, true);
 
-		modelBatch.begin(camera);
-//		modelBatch.render(coords, env);
-		modelBatch.render(gameObjects, env);
-		modelBatch.end();
+		if (Config.wireframeDebugDraw) {
+			debugModelBatch.begin(camera);
+			debugModelBatch.render(coords, env);
+			debugModelBatch.render(gameObjects, env);
+			debugModelBatch.end();
+		} else {
+			modelBatch.begin(camera);
+			modelBatch.render(coords, env);
+			modelBatch.render(gameObjects, env);
+			modelBatch.end();
+		}
 
 		if (Config.bulletDebugDraw) {
 			debugDrawer.begin(camera);
@@ -253,6 +253,7 @@ public class Main extends ApplicationAdapter {
 		scene.dispose();
 		terrainModel.dispose();
 		modelBatch.dispose();
+		debugModelBatch.dispose();
 		spriteBatch.dispose();
 		shapeRenderer.dispose();
 
@@ -281,8 +282,8 @@ public class Main extends ApplicationAdapter {
 			PatchShapeBuilder.build(meshPartBuilder,
 					-radius, 0f, -radius,
 					-radius, 0f,  radius,
-					radius, 0f,  radius,
-					radius, 0f, -radius,
+					 radius, 0f,  radius,
+					 radius, 0f, -radius,
 					0f, 1f, 0f,
 					heightValueRows,
 					heightValueCols
@@ -316,16 +317,16 @@ public class Main extends ApplicationAdapter {
 			for (int y = 0; y < heightValueRows; y++) {
 				for (int x = 0; x < heightValueCols; x++) {
 					int index = x + y * heightValueCols;
-//					vertices[numComponents * index + 0] -= 0.5f;
-					vertices[numComponents * index + 1] = heights[index] + yOffsetToOrigin;
-//					vertices[numComponents * index + 2] -= 0.5f;
-//					vertices[numComponents * index + 3] = <new r value>
-					vertices[numComponents * index + 4] = MathUtils.random(0.5f, 1f); // a little color variety so it's easier to see the contours
-//					vertices[numComponents * index + 5] = <new b value>
-//					vertices[numComponents * index + 6] = <new a value>
-//					vertices[numComponents * index + 7] = <new nor-x value>
-//					vertices[numComponents * index + 8] = <new nor-y value>
-//					vertices[numComponents * index + 9] = <new nor-z value>
+//					vertices[numComponents * index + 0] = // pos-x
+					vertices[numComponents * index + 1] = heights[index] + yOffsetToOrigin; // pos-y
+//					vertices[numComponents * index + 2] = // pos-z
+					vertices[numComponents * index + 3] = 0.2f + heights[index];         // color-r
+					vertices[numComponents * index + 4] = 0.2f + heights[index] * 1.1f;  // color-g
+					vertices[numComponents * index + 5] = 0.2f + heights[index];         // color-b
+//					vertices[numComponents * index + 6] = // color-a
+//					vertices[numComponents * index + 7] = // normal-x
+//					vertices[numComponents * index + 8] = // normal-y
+//					vertices[numComponents * index + 9] = // normal-z
 				}
 			}
 			mesh.updateVertices(0, vertices);
@@ -359,23 +360,23 @@ public class Main extends ApplicationAdapter {
 			meshPartBuilder = builder.part(CYLINDER.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.MAGENTA)));
 			CylinderShapeBuilder.build(meshPartBuilder, 1f, 2f, 1f, 10);
 
-			// TODO: for some reason this breaks the terrain component's vertices
-//			builder.node().id = COORDS.name();
-//			float axisLength = 10f;
-//			float capLength = 0.1f;
-//			float stemThickness = 0.2f;
-//			int divisions = 6;
-//			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.WHITE)));
-//			meshPartBuilder.setColor(Color.RED);
-//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
-//			meshPartBuilder.setColor(Color.GREEN);
-//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
-//			meshPartBuilder.setColor(Color.BLUE);
-//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
+			builder.node().id = COORDS.name();
+			float axisLength = 10f;
+			float capLength = 0.1f;
+			float stemThickness = 0.2f;
+			int divisions = 6;
+			var coordMaterial = new Material(ColorAttribute.createDiffuse(Color.WHITE), new BlendingAttribute(0.2f));
+			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, coordMaterial);
+			meshPartBuilder.setColor(Color.RED);
+			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
+			meshPartBuilder.setColor(Color.GREEN);
+			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
+			meshPartBuilder.setColor(Color.BLUE);
+			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
 		}
 		scene = builder.end();
 
-//		coords = new ModelInstance(scene, COORDS.name());
+		coords = new ModelInstance(scene, COORDS.name());
 
 		createGameObjectBuilders();
 	}
@@ -389,22 +390,13 @@ public class Main extends ApplicationAdapter {
 		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(1f, scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
 		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(1f, scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
 
-		// allocate the direct buffer
-		var count = heights.length;
-		var byteBuffer = BufferUtils.newUnsafeByteBuffer(Float.BYTES * count);
-		var buffer = byteBuffer.asFloatBuffer();
-		((Buffer) buffer).flip();
-		((Buffer) byteBuffer).flip();
-
-		// copy height data into the direct buffer
-		BufferUtils.copy(heights, buffer, count, 0);
-		((Buffer) buffer).position(0);
-		((Buffer) buffer).limit(count);
-
-		// use the buffer to create the bullet terrain shape
-		// TODO - not sure why adding an extra col/row here (heightStickW/H) as compared to the mesh fixes the size of the collision shape
-		var btHeightfieldTerrainShape = new btHeightfieldTerrainShape(heightValueCols + 1, heightValueRows + 1, buffer, 1f, 0f, 1f, 1, false);
-		gameObjectBuilders.put(TERRAIN,  new GameObject.Builder(0f, terrainModel, TERRAIN.name(),  btHeightfieldTerrainShape));
+		var terrainNodeParts = terrainModel.getNode(TERRAIN.name()).parts;
+		var terrainMeshParts = new Array<MeshPart>();
+		for (var node : terrainNodeParts) {
+			terrainMeshParts.add(node.meshPart);
+		}
+		var triangleMeshShape = new btBvhTriangleMeshShape(terrainMeshParts);
+		gameObjectBuilders.put(TERRAIN,  new GameObject.Builder(0f, terrainModel, TERRAIN.name(), triangleMeshShape));
 
 		createGameObjects();
 	}
@@ -430,39 +422,10 @@ public class Main extends ApplicationAdapter {
 			terrain.rigidBody.setContactCallbackFilter(0);
 			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
 			terrain.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+			terrain.transform.rotate(0f, 1f, 0f, 180f);
 		}
 		gameObjects.add(terrain);
 		dynamicsWorld.addRigidBody(terrain.rigidBody);
-
-		// NOTE - this is a hacked together way to see what the coord axes are without breaking model vertices
-		{
-			var object = gameObjectBuilders.get(CYLINDER).build();
-			{
-				object.transform.trn(8, 0.5f, 0);
-				object.rigidBody.proceedToTransform(object.transform);
-				object.rigidBody.setUserValue(gameObjects.size);
-				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.RED);
-			}
-			gameObjects.add(object);
-
-			object = gameObjectBuilders.get(CYLINDER).build();
-			{
-				object.transform.trn(0, 8, 0);
-				object.rigidBody.proceedToTransform(object.transform);
-				object.rigidBody.setUserValue(gameObjects.size);
-				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.GREEN);
-			}
-			gameObjects.add(object);
-
-			object = gameObjectBuilders.get(CYLINDER).build();
-			{
-				object.transform.trn(0, 0.5f, 8);
-				object.rigidBody.proceedToTransform(object.transform);
-				object.rigidBody.setUserValue(gameObjects.size);
-				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.BLUE);
-			}
-			gameObjects.add(object);
-		}
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {
@@ -483,6 +446,28 @@ public class Main extends ApplicationAdapter {
 		}
 		gameObjects.add(object);
 		dynamicsWorld.addRigidBody(object.rigidBody);
+	}
+
+	private void removeDeadGameObjects() {
+//		Gdx.app.log("Main", "game objects: " + gameObjects.size);
+		toBeRemoved.clear();
+		for (int i = 0; i < gameObjects.size; i++) {
+			var object = gameObjects.get(i);
+			if (!object.isAlive) {
+				dynamicsWorld.removeRigidBody(object.rigidBody);
+				object.dispose();
+				toBeRemoved.add(object);
+			}
+		}
+		gameObjects.removeAll(toBeRemoved, true);
+
+		// NOTE - removing from gameObjects breaks userValues,
+		//  which are indices to lookup GameObjects in ContactListener
+		//  so the userValues need to be updated after removal
+		for (int i = 0; i < gameObjects.size; i++) {
+			var object = gameObjects.get(i);
+			object.rigidBody.setUserValue(i);
+		}
 	}
 
 }
