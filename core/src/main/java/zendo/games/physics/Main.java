@@ -7,27 +7,30 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g3d.Environment;
-import com.badlogic.gdx.graphics.g3d.Material;
-import com.badlogic.gdx.graphics.g3d.Model;
-import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
+import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
+import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
+import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
+
+import java.nio.Buffer;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
@@ -44,27 +47,40 @@ public class Main extends ApplicationAdapter {
 	Environment env;
 	ModelBatch modelBatch;
 	SpriteBatch spriteBatch;
+	ShapeRenderer shapeRenderer;
 
 	ColorAttribute ambientLightAttrib;
 	DirectionalLight directionalLight;
 
-	Contacts contactListener;
 	btDispatcher dispatcher;
 	btConstraintSolver constraintSolver;
 	btCollisionConfiguration collisionConfig;
 	btBroadphaseInterface broadphase;
 	btDynamicsWorld dynamicsWorld;
+	Contacts contactListener;
+	DebugDrawer debugDrawer;
 
 	Model scene;
+	Model terrainModel;
 	GameObject ground;
+	GameObject terrain;
+	ModelInstance coords;
+
+	private final int heightValueRows = 20;
+	private final int heightValueCols = 20;
+	private final float[] heights = new float[heightValueRows * heightValueCols];
+	private float[] vertices;
+
 	final Array<GameObject> gameObjects = new Array<>();
 	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-	final float MAX_SPAWN_TIME = 0.01f;
+//	final float MAX_SPAWN_TIME = 0.01f;
+	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
+//	final float speed = 60f;
 	float angle = 0f;
 
 	BitmapFont font;
@@ -77,6 +93,7 @@ public class Main extends ApplicationAdapter {
 		public static final int fov = 67;
 		public static final int width = 1280;
 		public static final int height = 720;
+		public static boolean bulletDebugDraw = true;
 	}
 
 	public class Contacts extends ContactListener {
@@ -107,10 +124,10 @@ public class Main extends ApplicationAdapter {
 	@Override
 	public void create() {
 		Bullet.init();
-		contactListener = new Contacts();
 
 		modelBatch = new ModelBatch();
 		spriteBatch = new SpriteBatch();
+		shapeRenderer = new ShapeRenderer();
 
 		ambientLightAttrib = ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f);
 		directionalLight = new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f);
@@ -131,8 +148,16 @@ public class Main extends ApplicationAdapter {
 		dispatcher = new btCollisionDispatcher(collisionConfig);
 		broadphase = new btDbvtBroadphase();
 		constraintSolver = new btSequentialImpulseConstraintSolver();
+		contactListener = new Contacts();
+
+		debugDrawer = new DebugDrawer();
+		debugDrawer.setSpriteBatch(spriteBatch);
+		debugDrawer.setShapeRenderer(shapeRenderer);
+		debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe);
+
 		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
+		dynamicsWorld.setDebugDrawer(debugDrawer);
 
 		font = new BitmapFont();
 
@@ -144,6 +169,9 @@ public class Main extends ApplicationAdapter {
 
 		if (Gdx.input.isKeyJustPressed(Keys.ESCAPE)) {
 			Gdx.app.exit();
+		}
+		if (Gdx.input.isKeyJustPressed(Keys.TAB)) {
+			Config.bulletDebugDraw = !Config.bulletDebugDraw;
 		}
 
 		spawnTime -= delta;
@@ -189,13 +217,20 @@ public class Main extends ApplicationAdapter {
 		ScreenUtils.clear(Color.SKY, true);
 
 		modelBatch.begin(camera);
+//		modelBatch.render(coords, env);
 		modelBatch.render(gameObjects, env);
 		modelBatch.end();
 
+		if (Config.bulletDebugDraw) {
+			debugDrawer.begin(camera);
+			dynamicsWorld.debugDrawWorld();
+			debugDrawer.end();
+		}
+
 		spriteBatch.begin();
-		spriteBatch.setColor(Color.BLACK);
+		font.setColor(Color.BLACK);
 		font.draw(spriteBatch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 10, 20);
-		spriteBatch.setColor(Color.WHITE);
+		font.setColor(Color.WHITE);
 		spriteBatch.end();
 	}
 
@@ -211,13 +246,15 @@ public class Main extends ApplicationAdapter {
 		dispatcher.dispose();
 		collisionConfig.dispose();
 		constraintSolver.dispose();
-
+		debugDrawer.dispose();
 		contactListener.dispose();
 
 		font.dispose();
 		scene.dispose();
+		terrainModel.dispose();
 		modelBatch.dispose();
 		spriteBatch.dispose();
+		shapeRenderer.dispose();
 
 		// TODO - this causes a crash for some reason,
 		//  not a huge deal since this should only
@@ -231,13 +268,72 @@ public class Main extends ApplicationAdapter {
 	// ------------------------------------------------------------------------
 
 	private void createScene() {
+		MeshPartBuilder meshPartBuilder;
+
 		var builder = new ModelBuilder();
+		var attribs = Usage.Position | Usage.Normal | Usage.ColorUnpacked;
+
 		builder.begin();
 		{
-			MeshPartBuilder meshPartBuilder;
+			float radius = heightValueRows / 2f;
+			builder.node().id = TERRAIN.name();
+			meshPartBuilder = builder.part(TERRAIN.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.FOREST)));
+			PatchShapeBuilder.build(meshPartBuilder,
+					-radius, 0f, -radius,
+					-radius, 0f,  radius,
+					radius, 0f,  radius,
+					radius, 0f, -radius,
+					0f, 1f, 0f,
+					heightValueRows,
+					heightValueCols
+			);
+		}
+		terrainModel = builder.end();
 
-			var attribs = Usage.Position | Usage.ColorPacked | Usage.Normal;
+		// additional initialization for terrain mesh vertices
+		{
+			var terrain = terrainModel.getNode(TERRAIN.name());
+			var mesh = terrain.parts.first().meshPart.mesh;
 
+			// populate height values
+			for (int y = 0; y < heightValueRows; y++) {
+				for (int x = 0; x < heightValueCols; x++) {
+					int index = y * heightValueRows + x;
+					heights[index] = MathUtils.random(0f, 1f);
+				}
+			}
+
+			// populate an array for mesh vertices
+			final int numComponents = mesh.getVertexSize() / Float.BYTES;
+			final int numFloats = mesh.getNumVertices() * numComponents;
+			vertices = new float[numFloats];
+			mesh.getVertices(vertices);
+
+			// update vertex values (just height for now)
+			// NOTE - collision shapes expect their corresponding model to be centered around the origin
+			//  so the terrain needs to be shifted down by half a unit since the heights are between (0,1)
+			float yOffsetToOrigin = -0.5f;
+			for (int y = 0; y < heightValueRows; y++) {
+				for (int x = 0; x < heightValueCols; x++) {
+					int index = x + y * heightValueCols;
+//					vertices[numComponents * index + 0] -= 0.5f;
+					vertices[numComponents * index + 1] = heights[index] + yOffsetToOrigin;
+//					vertices[numComponents * index + 2] -= 0.5f;
+//					vertices[numComponents * index + 3] = <new r value>
+					vertices[numComponents * index + 4] = MathUtils.random(0.5f, 1f); // a little color variety so it's easier to see the contours
+//					vertices[numComponents * index + 5] = <new b value>
+//					vertices[numComponents * index + 6] = <new a value>
+//					vertices[numComponents * index + 7] = <new nor-x value>
+//					vertices[numComponents * index + 8] = <new nor-y value>
+//					vertices[numComponents * index + 9] = <new nor-z value>
+				}
+			}
+			mesh.updateVertices(0, vertices);
+		}
+
+		// build scene model
+		builder.begin();
+		{
 			// TODO - replace ground node with terrain mesh
 			builder.node().id = GROUND.name();
 			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.RED)));
@@ -262,8 +358,24 @@ public class Main extends ApplicationAdapter {
 			builder.node().id = CYLINDER.name();
 			meshPartBuilder = builder.part(CYLINDER.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.MAGENTA)));
 			CylinderShapeBuilder.build(meshPartBuilder, 1f, 2f, 1f, 10);
+
+			// TODO: for some reason this breaks the terrain component's vertices
+//			builder.node().id = COORDS.name();
+//			float axisLength = 10f;
+//			float capLength = 0.1f;
+//			float stemThickness = 0.2f;
+//			int divisions = 6;
+//			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.WHITE)));
+//			meshPartBuilder.setColor(Color.RED);
+//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
+//			meshPartBuilder.setColor(Color.GREEN);
+//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
+//			meshPartBuilder.setColor(Color.BLUE);
+//			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
 		}
 		scene = builder.end();
+
+//		coords = new ModelInstance(scene, COORDS.name());
 
 		createGameObjectBuilders();
 	}
@@ -276,6 +388,23 @@ public class Main extends ApplicationAdapter {
 		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE.name(),     new btConeShape(0.5f, 2f)));
 		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(1f, scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
 		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(1f, scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
+
+		// allocate the direct buffer
+		var count = heights.length;
+		var byteBuffer = BufferUtils.newUnsafeByteBuffer(Float.BYTES * count);
+		var buffer = byteBuffer.asFloatBuffer();
+		((Buffer) buffer).flip();
+		((Buffer) byteBuffer).flip();
+
+		// copy height data into the direct buffer
+		BufferUtils.copy(heights, buffer, count, 0);
+		((Buffer) buffer).position(0);
+		((Buffer) buffer).limit(count);
+
+		// use the buffer to create the bullet terrain shape
+		// TODO - not sure why adding an extra col/row here (heightStickW/H) as compared to the mesh fixes the size of the collision shape
+		var btHeightfieldTerrainShape = new btHeightfieldTerrainShape(heightValueCols + 1, heightValueRows + 1, buffer, 1f, 0f, 1f, 1, false);
+		gameObjectBuilders.put(TERRAIN,  new GameObject.Builder(0f, terrainModel, TERRAIN.name(),  btHeightfieldTerrainShape));
 
 		createGameObjects();
 	}
@@ -292,6 +421,48 @@ public class Main extends ApplicationAdapter {
 		}
 		gameObjects.add(ground);
 		dynamicsWorld.addRigidBody(ground.rigidBody);
+
+		terrain = gameObjectBuilders.get(TERRAIN).build();
+		{
+			terrain.rigidBody.setCollisionFlags(terrain.rigidBody.getCollisionFlags()
+					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
+			terrain.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+			terrain.rigidBody.setContactCallbackFilter(0);
+			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
+			terrain.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+		}
+		gameObjects.add(terrain);
+		dynamicsWorld.addRigidBody(terrain.rigidBody);
+
+		// NOTE - this is a hacked together way to see what the coord axes are without breaking model vertices
+		{
+			var object = gameObjectBuilders.get(CYLINDER).build();
+			{
+				object.transform.trn(8, 0.5f, 0);
+				object.rigidBody.proceedToTransform(object.transform);
+				object.rigidBody.setUserValue(gameObjects.size);
+				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.RED);
+			}
+			gameObjects.add(object);
+
+			object = gameObjectBuilders.get(CYLINDER).build();
+			{
+				object.transform.trn(0, 8, 0);
+				object.rigidBody.proceedToTransform(object.transform);
+				object.rigidBody.setUserValue(gameObjects.size);
+				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.GREEN);
+			}
+			gameObjects.add(object);
+
+			object = gameObjectBuilders.get(CYLINDER).build();
+			{
+				object.transform.trn(0, 0.5f, 8);
+				object.rigidBody.proceedToTransform(object.transform);
+				object.rigidBody.setUserValue(gameObjects.size);
+				((ColorAttribute) object.materials.first().get(ColorAttribute.Diffuse)).color.set(Color.BLUE);
+			}
+			gameObjects.add(object);
+		}
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {

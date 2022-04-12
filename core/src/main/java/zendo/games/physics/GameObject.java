@@ -20,12 +20,12 @@ import com.badlogic.gdx.utils.Disposable;
 public class GameObject extends ModelInstance implements Disposable {
 
     public enum Type {
-        GROUND, SPHERE, BOX, CONE, CAPSULE, CYLINDER;
+        GROUND, TERRAIN, COORDS, SPHERE, BOX, CONE, CAPSULE, CYLINDER;
         private static final Type[] values = Type.values();
         private static final int numTypes = Type.values().length;
         public static Type random() {
-            // NOTE - skips GROUND type
-            return values[MathUtils.random(1, numTypes - 1)];
+            // NOTE - skips GROUND, TERRAIN, and COORDS types
+            return values[MathUtils.random(3, numTypes - 1)];
         }
     }
 
