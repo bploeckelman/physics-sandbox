@@ -23,14 +23,15 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
-import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
-import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
-import com.badlogic.gdx.physics.bullet.dynamics.btDynamicsWorld;
-import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
+import com.badlogic.gdx.physics.bullet.dynamics.*;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
+import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
+import com.badlogic.gdx.physics.bullet.softbody.*;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
 import com.badlogic.gdx.utils.ScreenUtils;
+
+import java.nio.ByteBuffer;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
@@ -38,7 +39,8 @@ import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
-	private static final short OBJECT_FLAG = 1 << 8;
+	private static final short OBJECT_FLAG = 1 << 7;
+	private static final short SOFT_FLAG   = 1 << 8;
 	private static final short GROUND_FLAG = 1 << 9;
 
 	PerspectiveCamera camera;
@@ -56,8 +58,9 @@ public class Main extends ApplicationAdapter {
 	btDispatcher dispatcher;
 	btConstraintSolver constraintSolver;
 	btCollisionConfiguration collisionConfig;
+	btSoftBodyWorldInfo softBodyWorldInfo;
 	btBroadphaseInterface broadphase;
-	btDynamicsWorld dynamicsWorld;
+	btSoftRigidDynamicsWorld dynamicsWorld;
 	Contacts contactListener;
 	DebugDrawer debugDrawer;
 
@@ -76,8 +79,8 @@ public class Main extends ApplicationAdapter {
 	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-	final float MAX_SPAWN_TIME = 0.1f;
-//	final float MAX_SPAWN_TIME = 1f;
+//	final float MAX_SPAWN_TIME = 0.1f;
+	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -94,7 +97,7 @@ public class Main extends ApplicationAdapter {
 		public static final int fov = 67;
 		public static final int width = 1280;
 		public static final int height = 720;
-		public static boolean bulletDebugDraw = false;
+		public static boolean bulletDebugDraw = true;
 		public static boolean wireframeDebugDraw = false;
 	}
 
@@ -152,20 +155,29 @@ public class Main extends ApplicationAdapter {
 		camController = new CameraInputController(camera);
 		Gdx.input.setInputProcessor(camController);
 
-		collisionConfig = new btDefaultCollisionConfiguration();
+//		collisionConfig = new btDefaultCollisionConfiguration();
+		collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
-		broadphase = new btDbvtBroadphase();
+//		broadphase = new btDbvtBroadphase();
+		broadphase = new btAxisSweep3(new Vector3(-1000, -1000, -1000), new Vector3(1000, 1000, 1000), 1024);
 		constraintSolver = new btSequentialImpulseConstraintSolver();
 		contactListener = new Contacts();
+		softBodyWorldInfo = new btSoftBodyWorldInfo();
+		softBodyWorldInfo.setDispatcher(dispatcher);
+		softBodyWorldInfo.setBroadphase(broadphase);
+		softBodyWorldInfo.getSparsesdf().Initialize();
+		softBodyWorldInfo.setGravity(new btVector3(0f, -9.8f, 0f));
 
 		debugDrawer = new DebugDrawer();
 		debugDrawer.setSpriteBatch(spriteBatch);
 		debugDrawer.setShapeRenderer(shapeRenderer);
 		debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe);
 
-		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
-		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
+//		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
+		dynamicsWorld = new btSoftRigidDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld.setDebugDrawer(debugDrawer);
+		// TODO - set gravity here and in softBodyWorldInfo, or just one place?
+		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
 
 		font = new BitmapFont();
 
@@ -193,7 +205,7 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-		ground.transform.setTranslation(0, 2f + MathUtils.sinDeg(angle) * 2.5f, 0f);
+//		ground.transform.setTranslation(0, 5f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
@@ -242,12 +254,15 @@ public class Main extends ApplicationAdapter {
 		gameObjects.clear();
 		gameObjectBuilders.clear();
 
+		softBody.dispose();
+
 		broadphase.dispose();
 		dispatcher.dispose();
 		collisionConfig.dispose();
 		constraintSolver.dispose();
 		debugDrawer.dispose();
 		contactListener.dispose();
+		softBodyWorldInfo.dispose();
 
 		font.dispose();
 		scene.dispose();
@@ -257,10 +272,9 @@ public class Main extends ApplicationAdapter {
 		spriteBatch.dispose();
 		shapeRenderer.dispose();
 
-		// TODO - this causes a crash for some reason,
-		//  not a huge deal since this should only
-		//  happen when the application is closing
-		//  but it'd be good to know why and fix it
+		// TODO - this causes a crash, not a huge deal since it happens when the application is closing
+		//  but sometime when feeling adventurous, build a bullet dll with debug symbols and go to town:
+		//  https://libgdx.com/wiki/extensions/physics/bullet/bullet-wrapper-debugging
 //		dynamicsWorld.dispose();
 	}
 
@@ -414,38 +428,78 @@ public class Main extends ApplicationAdapter {
 		gameObjects.add(ground);
 		dynamicsWorld.addRigidBody(ground.rigidBody);
 
-		terrain = gameObjectBuilders.get(TERRAIN).build();
-		{
-			terrain.rigidBody.setCollisionFlags(terrain.rigidBody.getCollisionFlags()
-					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
-			terrain.rigidBody.setContactCallbackFlag(GROUND_FLAG);
-			terrain.rigidBody.setContactCallbackFilter(0);
-			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
-			terrain.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
-			terrain.transform.rotate(0f, 1f, 0f, 180f);
-		}
-		gameObjects.add(terrain);
-		dynamicsWorld.addRigidBody(terrain.rigidBody);
+//		terrain = gameObjectBuilders.get(TERRAIN).build();
+//		{
+//			terrain.rigidBody.setCollisionFlags(terrain.rigidBody.getCollisionFlags()
+//					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
+//			terrain.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+//			terrain.rigidBody.setContactCallbackFilter(0);
+//			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
+//			terrain.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+//			terrain.transform.rotate(0f, 1f, 0f, 180f);
+//		}
+//		gameObjects.add(terrain);
+//		dynamicsWorld.addRigidBody(terrain.rigidBody);
 
 		int numStartingObjects = 5;
 		for (int i = 0; i < numStartingObjects; i++) {
 			spawnObject();
 		}
+
+		createSoftBodyObjectTEST();
 	}
 
-	private void spawnObject() {
+	private btSoftBody softBody;
+	private void createSoftBodyObjectTEST() {
+
+		var xyz0 = new Vector3(-10f, 8f, -10f);
+		var xyz1 = new Vector3(10f, 8f, 10f);
+
+		var corner00 = new Vector3(xyz0);
+		var corner11 = new Vector3(xyz1);
+		var corner01 = new Vector3(xyz0.x, xyz0.y, xyz1.z);
+		var corner10 = new Vector3(xyz1.x, xyz1.y, xyz0.z);
+
+		softBody = btSoftBodyHelpers.CreatePatch(softBodyWorldInfo, corner00, corner10, corner01, corner11, 10, 10, 10, false);
+		softBody.takeOwnership();
+		softBody.setTotalMass(100f);
+		softBody.setContactCallbackFlag(SOFT_FLAG);
+		softBody.setContactCallbackFilter(0);
+		dynamicsWorld.addSoftBody(softBody);
+
+		softBody.setMass(0, 0f);
+		softBody.setMass(9, 0f);
+		softBody.setMass(90, 0f);
+		softBody.setMass(99, 0f);
+
+		// TODO - works, but crashes when it interacts with 'terrain' body
+	}
+
+	private GameObject spawnObject() {
+		return spawnObject(
+				MathUtils.random(-2.5f, 2.5f), MathUtils.random(15, 20f), MathUtils.random(-2.5f, 2.5f),
+				MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f)
+		);
+	}
+
+	private GameObject spawnObject(Vector3 position, Vector3 angles) {
+		return spawnObject(position.x, position.y, position.z, angles.x, angles.y, angles.z);
+	}
+
+	private GameObject spawnObject(float posX, float posY, float posZ, float angleX, float angleY, float angleZ) {
 		var object = gameObjectBuilders.get(GameObject.Type.random()).build();
 		{
-			object.transform.setFromEulerAngles(MathUtils.random(360f), MathUtils.random(360f), MathUtils.random(360f));
-			object.transform.trn(MathUtils.random(-2.5f, 2.5f), MathUtils.random(10, 14f), MathUtils.random(-2.5f, 2.5f));
+			object.transform.setFromEulerAngles(angleX, angleY, angleZ);
+			object.transform.trn(posX, posY, posZ);
 			object.rigidBody.proceedToTransform(object.transform);
 			object.rigidBody.setUserValue(gameObjects.size);
 			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 			object.rigidBody.setContactCallbackFlag(OBJECT_FLAG);
-			object.rigidBody.setContactCallbackFilter(GROUND_FLAG);
+			object.rigidBody.setContactCallbackFilter(SOFT_FLAG);
 		}
 		gameObjects.add(object);
 		dynamicsWorld.addRigidBody(object.rigidBody);
+		return object;
 	}
 
 	private void removeDeadGameObjects() {
