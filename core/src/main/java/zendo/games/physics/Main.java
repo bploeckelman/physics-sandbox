@@ -10,12 +10,10 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.graphics.g3d.model.MeshPart;
-import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
-import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
-import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.*;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -23,15 +21,19 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
-import com.badlogic.gdx.physics.bullet.dynamics.*;
+import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
+import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
+import com.badlogic.gdx.physics.bullet.linearmath.LinearMath;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
-import com.badlogic.gdx.physics.bullet.softbody.*;
+import com.badlogic.gdx.physics.bullet.softbody.btSoftBody;
+import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyRigidBodyCollisionConfiguration;
+import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyWorldInfo;
+import com.badlogic.gdx.physics.bullet.softbody.btSoftRigidDynamicsWorld;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ArrayMap;
+import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
-
-import java.nio.ByteBuffer;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
@@ -48,12 +50,13 @@ public class Main extends ApplicationAdapter {
 
 	Environment env;
 	ModelBatch modelBatch;
+	ModelBatch shadowBatch;
 	ModelBatch debugModelBatch;
 	SpriteBatch spriteBatch;
 	ShapeRenderer shapeRenderer;
 
 	ColorAttribute ambientLightAttrib;
-	DirectionalLight directionalLight;
+	DirectionalShadowLight directionalShadowLight;
 
 	btDispatcher dispatcher;
 	btConstraintSolver constraintSolver;
@@ -79,8 +82,10 @@ public class Main extends ApplicationAdapter {
 	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
 
-//	final float MAX_SPAWN_TIME = 0.1f;
-	final float MAX_SPAWN_TIME = 1f;
+	final Array<Disposable> disposables = new Array<>();
+
+	final float MAX_SPAWN_TIME = 0.1f;
+//	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -97,7 +102,7 @@ public class Main extends ApplicationAdapter {
 		public static final int fov = 67;
 		public static final int width = 1280;
 		public static final int height = 720;
-		public static boolean bulletDebugDraw = true;
+		public static boolean bulletDebugDraw = false;
 		public static boolean wireframeDebugDraw = false;
 	}
 
@@ -129,8 +134,10 @@ public class Main extends ApplicationAdapter {
 	@Override
 	public void create() {
 		Bullet.init();
+		Gdx.app.log("Bullet", "Version = " + LinearMath.btGetVersion());
 
 		modelBatch = new ModelBatch();
+		shadowBatch = new ModelBatch(new DepthShaderProvider());
 		debugModelBatch = new ModelBatch(new DefaultShaderProvider() {
 			@Override
 			protected Shader createShader(Renderable renderable) {
@@ -141,11 +148,14 @@ public class Main extends ApplicationAdapter {
 		shapeRenderer = new ShapeRenderer();
 
 		ambientLightAttrib = ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f);
-		directionalLight = new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f);
+		directionalShadowLight = new DirectionalShadowLight(4096, 4096,
+				100f, 100f, 1f, 100f);
+		directionalShadowLight.set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -.2f);
 
 		env = new Environment();
 		env.set(ambientLightAttrib);
-		env.add(directionalLight);
+		env.add(directionalShadowLight);
+		env.shadowMap = directionalShadowLight;
 
 		camera = new PerspectiveCamera(Config.fov, Config.width, Config.height);
 		camera.position.set(3f, 7f, 10f);
@@ -155,11 +165,9 @@ public class Main extends ApplicationAdapter {
 		camController = new CameraInputController(camera);
 		Gdx.input.setInputProcessor(camController);
 
-//		collisionConfig = new btDefaultCollisionConfiguration();
 		collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
-//		broadphase = new btDbvtBroadphase();
-		broadphase = new btAxisSweep3(new Vector3(-1000, -1000, -1000), new Vector3(1000, 1000, 1000), 1024);
+		broadphase = new btDbvtBroadphase();
 		constraintSolver = new btSequentialImpulseConstraintSolver();
 		contactListener = new Contacts();
 		softBodyWorldInfo = new btSoftBodyWorldInfo();
@@ -173,7 +181,6 @@ public class Main extends ApplicationAdapter {
 		debugDrawer.setShapeRenderer(shapeRenderer);
 		debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe);
 
-//		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld = new btSoftRigidDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld.setDebugDrawer(debugDrawer);
 		// TODO - set gravity here and in softBodyWorldInfo, or just one place?
@@ -182,6 +189,29 @@ public class Main extends ApplicationAdapter {
 		font = new BitmapFont();
 
 		createScene();
+
+		disposables.addAll(
+				  broadphase
+				, dispatcher
+				, collisionConfig
+				, constraintSolver
+				, debugDrawer
+				, contactListener
+				, softBodyWorldInfo
+				, font
+				, scene
+				, terrainModel
+				, modelBatch
+				, shadowBatch
+				, debugModelBatch
+				, spriteBatch
+				, shapeRenderer
+				, directionalShadowLight
+				// TODO - this causes a crash, not a huge deal since it happens when the application is closing
+				//  but sometime when feeling adventurous, build a bullet dll with debug symbols and go to town:
+				//  https://libgdx.com/wiki/extensions/physics/bullet/bullet-wrapper-debugging
+//				, dynamicsWorld
+		);
 	}
 
 	public void update() {
@@ -205,7 +235,7 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-//		ground.transform.setTranslation(0, 5f + MathUtils.sinDeg(angle) * 3f, 0f);
+		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
@@ -227,6 +257,16 @@ public class Main extends ApplicationAdapter {
 			debugModelBatch.render(gameObjects, env);
 			debugModelBatch.end();
 		} else {
+			// first draw the shadows
+			directionalShadowLight.begin(Vector3.Zero, camera.direction);
+			{
+				shadowBatch.begin(directionalShadowLight.getCamera());
+				shadowBatch.render(gameObjects);
+				shadowBatch.end();
+			}
+			directionalShadowLight.end();
+
+			// then draw the world normally
 			modelBatch.begin(camera);
 			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
@@ -248,39 +288,23 @@ public class Main extends ApplicationAdapter {
 
 	@Override
 	public void dispose() {
+		disposables.forEach(Disposable::dispose);
+		disposables.clear();
+
 		gameObjects.forEach(GameObject::dispose);
 		gameObjectBuilders.values().forEach(GameObject.Builder::dispose);
 
 		gameObjects.clear();
 		gameObjectBuilders.clear();
 
-		softBody.dispose();
-
-		broadphase.dispose();
-		dispatcher.dispose();
-		collisionConfig.dispose();
-		constraintSolver.dispose();
-		debugDrawer.dispose();
-		contactListener.dispose();
-		softBodyWorldInfo.dispose();
-
-		font.dispose();
-		scene.dispose();
-		terrainModel.dispose();
-		modelBatch.dispose();
-		debugModelBatch.dispose();
-		spriteBatch.dispose();
-		shapeRenderer.dispose();
-
-		// TODO - this causes a crash, not a huge deal since it happens when the application is closing
-		//  but sometime when feeling adventurous, build a bullet dll with debug symbols and go to town:
-		//  https://libgdx.com/wiki/extensions/physics/bullet/bullet-wrapper-debugging
-//		dynamicsWorld.dispose();
+		super.dispose();
 	}
 
 	// ------------------------------------------------------------------------
 	// Implementation Methods
 	// ------------------------------------------------------------------------
+
+	private final float GROUND_SIZE = 100f;
 
 	private void createScene() {
 		MeshPartBuilder meshPartBuilder;
@@ -349,10 +373,12 @@ public class Main extends ApplicationAdapter {
 		// build scene model
 		builder.begin();
 		{
-			// TODO - replace ground node with terrain mesh
+			// TODO - add a btBox2dShape option for the ground instead of using a box
+
 			builder.node().id = GROUND.name();
-			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.RED)));
-			BoxShapeBuilder.build(meshPartBuilder, 5f, 1f, 5f);
+			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs,
+					new Material(ColorAttribute.createDiffuse(Color.WHITE), ColorAttribute.createSpecular(Color.WHITE), FloatAttribute.createShininess(16f)));
+			BoxShapeBuilder.build(meshPartBuilder, GROUND_SIZE, 1f, GROUND_SIZE);
 
 			builder.node().id = SPHERE.name();
 			meshPartBuilder = builder.part(SPHERE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.GREEN)));
@@ -397,7 +423,7 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjectBuilders() {
 		// TODO - this duplicates size parameters from ModelBuilder setup in createScene(), easy to get wrong so centralize
-		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBoxShape(new Vector3(2.5f, 0.5f, 2.5f))));
+		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBoxShape(new Vector3(GROUND_SIZE / 2, 0.5f, GROUND_SIZE / 2))));
 		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(1f, scene, SPHERE.name(),   new btSphereShape(0.5f)));
 		gameObjectBuilders.put(BOX,      new GameObject.Builder(1f, scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
 		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE.name(),     new btConeShape(0.5f, 2f)));
@@ -452,25 +478,25 @@ public class Main extends ApplicationAdapter {
 	private btSoftBody softBody;
 	private void createSoftBodyObjectTEST() {
 
-		var xyz0 = new Vector3(-10f, 8f, -10f);
-		var xyz1 = new Vector3(10f, 8f, 10f);
-
-		var corner00 = new Vector3(xyz0);
-		var corner11 = new Vector3(xyz1);
-		var corner01 = new Vector3(xyz0.x, xyz0.y, xyz1.z);
-		var corner10 = new Vector3(xyz1.x, xyz1.y, xyz0.z);
-
-		softBody = btSoftBodyHelpers.CreatePatch(softBodyWorldInfo, corner00, corner10, corner01, corner11, 10, 10, 10, false);
-		softBody.takeOwnership();
-		softBody.setTotalMass(100f);
-		softBody.setContactCallbackFlag(SOFT_FLAG);
-		softBody.setContactCallbackFilter(0);
-		dynamicsWorld.addSoftBody(softBody);
-
-		softBody.setMass(0, 0f);
-		softBody.setMass(9, 0f);
-		softBody.setMass(90, 0f);
-		softBody.setMass(99, 0f);
+//		var xyz0 = new Vector3(-10f, 8f, -10f);
+//		var xyz1 = new Vector3(10f, 8f, 10f);
+//
+//		var corner00 = new Vector3(xyz0);
+//		var corner11 = new Vector3(xyz1);
+//		var corner01 = new Vector3(xyz0.x, xyz0.y, xyz1.z);
+//		var corner10 = new Vector3(xyz1.x, xyz1.y, xyz0.z);
+//
+//		softBody = btSoftBodyHelpers.CreatePatch(softBodyWorldInfo, corner00, corner10, corner01, corner11, 10, 10, 10, false);
+//		softBody.takeOwnership();
+//		softBody.setTotalMass(100f);
+//		softBody.setContactCallbackFlag(SOFT_FLAG);
+//		softBody.setContactCallbackFilter(0);
+//		dynamicsWorld.addSoftBody(softBody);
+//
+//		softBody.setMass(0, 0f);
+//		softBody.setMass(9, 0f);
+//		softBody.setMass(90, 0f);
+//		softBody.setMass(99, 0f);
 
 		// TODO - works, but crashes when it interacts with 'terrain' body
 	}
@@ -487,6 +513,7 @@ public class Main extends ApplicationAdapter {
 	}
 
 	private GameObject spawnObject(float posX, float posY, float posZ, float angleX, float angleY, float angleZ) {
+		// TODO - add to disposables
 		var object = gameObjectBuilders.get(GameObject.Type.random()).build();
 		{
 			object.transform.setFromEulerAngles(angleX, angleY, angleZ);
