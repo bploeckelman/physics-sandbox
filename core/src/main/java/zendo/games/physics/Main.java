@@ -5,12 +5,13 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.*;
-import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.graphics.g3d.model.MeshPart;
 import com.badlogic.gdx.graphics.g3d.utils.*;
@@ -93,6 +94,7 @@ public class Main extends ApplicationAdapter {
 	float angle = 0f;
 
 	BitmapFont font;
+	Texture texture;
 
 	// ------------------------------------------------------------------------
 	// Data structures
@@ -158,7 +160,7 @@ public class Main extends ApplicationAdapter {
 		env.shadowMap = directionalShadowLight;
 
 		camera = new PerspectiveCamera(Config.fov, Config.width, Config.height);
-		camera.position.set(3f, 7f, 10f);
+		camera.position.set(15f, 10f, 15f);
 		camera.lookAt(0f, 4f, 0f);
 		camera.update();
 
@@ -187,6 +189,7 @@ public class Main extends ApplicationAdapter {
 		dynamicsWorld.setGravity(new Vector3(0f, -9.8f, 0f));
 
 		font = new BitmapFont();
+		texture = new Texture(Gdx.files.internal("prototype-grid-orange.png"), true);
 
 		createScene();
 
@@ -199,6 +202,7 @@ public class Main extends ApplicationAdapter {
 				, contactListener
 				, softBodyWorldInfo
 				, font
+				, texture
 				, scene
 				, terrainModel
 				, modelBatch
@@ -304,7 +308,7 @@ public class Main extends ApplicationAdapter {
 	// Implementation Methods
 	// ------------------------------------------------------------------------
 
-	private final float GROUND_SIZE = 100f;
+	private final float GROUND_SIZE = 50f;
 
 	private void createScene() {
 		MeshPartBuilder meshPartBuilder;
@@ -373,12 +377,27 @@ public class Main extends ApplicationAdapter {
 		// build scene model
 		builder.begin();
 		{
-			// TODO - add a btBox2dShape option for the ground instead of using a box
-
+			// create a ground plane with a texture repeated across it's surface
 			builder.node().id = GROUND.name();
-			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs,
-					new Material(ColorAttribute.createDiffuse(Color.WHITE), ColorAttribute.createSpecular(Color.WHITE), FloatAttribute.createShininess(16f)));
-			BoxShapeBuilder.build(meshPartBuilder, GROUND_SIZE, 1f, GROUND_SIZE);
+			var diffuseTextureAttribute = TextureAttribute.createDiffuse(texture);
+			diffuseTextureAttribute.textureDescription.uWrap = Texture.TextureWrap.Repeat;
+			diffuseTextureAttribute.textureDescription.vWrap = Texture.TextureWrap.Repeat;
+			diffuseTextureAttribute.textureDescription.minFilter = Texture.TextureFilter.MipMapLinearLinear;
+			diffuseTextureAttribute.textureDescription.magFilter = Texture.TextureFilter.MipMapLinearLinear;
+			meshPartBuilder = builder.part(GROUND.name(), GL20.GL_TRIANGLES, attribs | Usage.TextureCoordinates,
+					new Material(
+							  ColorAttribute.createDiffuse(Color.WHITE)
+							, ColorAttribute.createSpecular(Color.WHITE)
+							, FloatAttribute.createShininess(16f)
+							, diffuseTextureAttribute
+					)
+			);
+			meshPartBuilder.rect(
+					new MeshPartBuilder.VertexInfo().setPos(-GROUND_SIZE / 2, 0f, -GROUND_SIZE / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 0),
+					new MeshPartBuilder.VertexInfo().setPos(-GROUND_SIZE / 2, 0f,  GROUND_SIZE / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 10),
+					new MeshPartBuilder.VertexInfo().setPos( GROUND_SIZE / 2, 0f,  GROUND_SIZE / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 10, 10),
+					new MeshPartBuilder.VertexInfo().setPos( GROUND_SIZE / 2, 0f, -GROUND_SIZE / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 10, 0)
+			);
 
 			builder.node().id = SPHERE.name();
 			meshPartBuilder = builder.part(SPHERE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.GREEN)));
@@ -405,8 +424,10 @@ public class Main extends ApplicationAdapter {
 			float capLength = 0.1f;
 			float stemThickness = 0.2f;
 			int divisions = 6;
-			var coordMaterial = new Material(ColorAttribute.createDiffuse(Color.WHITE), new BlendingAttribute(0.2f));
+			var coordMaterial = new Material(ColorAttribute.createDiffuse(Color.WHITE));
 			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, coordMaterial);
+			meshPartBuilder.setColor(Color.WHITE);
+			SphereShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10, 10);
 			meshPartBuilder.setColor(Color.RED);
 			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
 			meshPartBuilder.setColor(Color.GREEN);
@@ -423,7 +444,7 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjectBuilders() {
 		// TODO - this duplicates size parameters from ModelBuilder setup in createScene(), easy to get wrong so centralize
-		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBoxShape(new Vector3(GROUND_SIZE / 2, 0.5f, GROUND_SIZE / 2))));
+		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBox2dShape(new Vector3(GROUND_SIZE / 2, 0f, GROUND_SIZE / 2))));
 		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(1f, scene, SPHERE.name(),   new btSphereShape(0.5f)));
 		gameObjectBuilders.put(BOX,      new GameObject.Builder(1f, scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
 		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE.name(),     new btConeShape(0.5f, 2f)));
