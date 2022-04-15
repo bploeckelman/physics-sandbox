@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
+import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
 import com.badlogic.gdx.graphics.g3d.model.MeshPart;
 import com.badlogic.gdx.graphics.g3d.utils.*;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
@@ -31,10 +32,7 @@ import com.badlogic.gdx.physics.bullet.softbody.btSoftBody;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyRigidBodyCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyWorldInfo;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftRigidDynamicsWorld;
-import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.ArrayMap;
-import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.ScreenUtils;
+import com.badlogic.gdx.utils.*;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
@@ -95,6 +93,8 @@ public class Main extends ApplicationAdapter {
 
 	BitmapFont font;
 	Texture texture;
+	Model bed;
+	ModelInstance bedInstance;
 
 	// ------------------------------------------------------------------------
 	// Data structures
@@ -274,6 +274,7 @@ public class Main extends ApplicationAdapter {
 			modelBatch.begin(camera);
 			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
+			modelBatch.render(bedInstance, env);
 			modelBatch.end();
 		}
 
@@ -438,6 +439,11 @@ public class Main extends ApplicationAdapter {
 		scene = builder.end();
 
 		coords = new ModelInstance(scene, COORDS.name());
+
+		bed = new G3dModelLoader(new UBJsonReader()).loadModel(Gdx.files.internal("bed.g3db"));
+		bedInstance = new ModelInstance(bed);
+		bedInstance.transform.trn(3f, 3f, 3f);
+		disposables.add(bed);
 
 		createGameObjectBuilders();
 	}
