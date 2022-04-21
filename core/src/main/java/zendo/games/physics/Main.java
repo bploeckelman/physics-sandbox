@@ -77,6 +77,12 @@ public class Main extends ApplicationAdapter {
 	private final float[] heights = new float[heightValueRows * heightValueCols];
 	private float[] vertices;
 
+	final Vector3 lightDir = new Vector3();
+	final Color lightColor = Color.WHITE.cpy();
+
+	final float MAX_LIGHT_TIMER = 1f;
+	float lightTimer = MAX_LIGHT_TIMER;
+
 	final Array<GameObject> gameObjects = new Array<>();
 	final Array<GameObject> toBeRemoved = new Array<>();
 	final ArrayMap<GameObject.Type, GameObject.Builder> gameObjectBuilders = new ArrayMap<>();
@@ -149,10 +155,12 @@ public class Main extends ApplicationAdapter {
 		spriteBatch = new SpriteBatch();
 		shapeRenderer = new ShapeRenderer();
 
+		lightDir.set(-1f, -0.8f, -0.2f);
+		lightColor.set(0.8f, 0.8f, 0.8f, 1f);
 		ambientLightAttrib = ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f);
 		directionalShadowLight = new DirectionalShadowLight(4096, 4096,
 				100f, 100f, 1f, 100f);
-		directionalShadowLight.set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -.2f);
+		directionalShadowLight.set(lightColor.r, lightColor.g, lightColor.b, lightDir.x, lightDir.y, lightDir.z);
 
 		env = new Environment();
 		env.set(ambientLightAttrib);
@@ -240,6 +248,15 @@ public class Main extends ApplicationAdapter {
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
 		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
+
+		// move the light
+		lightTimer -= delta;
+		if (lightTimer <= 0f) {
+			lightTimer = MAX_LIGHT_TIMER;
+			lightDir.setToRandomDirection();
+			lightColor.set(MathUtils.random(0.5f, 1f), MathUtils.random(0.5f, 1f), MathUtils.random(0.5f, 1f), 1f);
+			directionalShadowLight.set(lightColor, lightDir);
+		}
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
 
