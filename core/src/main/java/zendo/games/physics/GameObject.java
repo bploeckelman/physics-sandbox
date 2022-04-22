@@ -1,6 +1,7 @@
 package zendo.games.physics;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
@@ -20,12 +21,12 @@ import com.badlogic.gdx.utils.Disposable;
 public class GameObject extends ModelInstance implements Disposable {
 
     public enum Type {
-        GROUND, TERRAIN, COORDS, SPHERE, BOX, CONE, CAPSULE, CYLINDER;
+        GROUND, MESH, TERRAIN, COORDS, SPHERE, BOX, CONE, CAPSULE, CYLINDER;
         private static final Type[] values = Type.values();
         private static final int numTypes = Type.values().length;
         public static Type random() {
             // NOTE - skips GROUND, TERRAIN, and COORDS types
-            return values[MathUtils.random(3, numTypes - 1)];
+            return values[MathUtils.random(4, numTypes - 1)];
         }
     }
 
@@ -74,6 +75,9 @@ public class GameObject extends ModelInstance implements Disposable {
         this.isAlive = true;
 
         // add a blending attribute so alpha in the diffuse attribute is respected
+        if (this.materials.isEmpty()) {
+            this.materials.add(new Material());
+        }
         this.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));
     }
 

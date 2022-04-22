@@ -68,6 +68,8 @@ public class Main extends ApplicationAdapter {
 
 	Model scene;
 	Model terrainModel;
+	Model cornerModel;
+	ModelInstance cornerInstance;
 	GameObject ground;
 	GameObject terrain;
 	ModelInstance coords;
@@ -302,6 +304,7 @@ public class Main extends ApplicationAdapter {
 			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
 			modelBatch.render(bedInstance, env);
+			modelBatch.render(cornerInstance, env);
 			modelBatch.end();
 		}
 
@@ -467,10 +470,15 @@ public class Main extends ApplicationAdapter {
 
 		coords = new ModelInstance(scene, COORDS.name());
 
-		bed = new G3dModelLoader(new UBJsonReader()).loadModel(Gdx.files.internal("bed.g3db"));
+		var loader = new G3dModelLoader(new UBJsonReader());
+
+		bed = loader.loadModel(Gdx.files.internal("bed.g3db"));
 		bedInstance = new ModelInstance(bed);
 		bedInstance.transform.trn(3f, 3f, 3f);
 		disposables.add(bed);
+
+		cornerModel = loader.loadModel(Gdx.files.internal("corner1.g3db"));
+		cornerInstance = new ModelInstance(cornerModel);
 
 		createGameObjectBuilders();
 	}
@@ -492,10 +500,26 @@ public class Main extends ApplicationAdapter {
 		var triangleMeshShape = new btBvhTriangleMeshShape(terrainMeshParts);
 		gameObjectBuilders.put(TERRAIN,  new GameObject.Builder(0f, terrainModel, TERRAIN.name(), triangleMeshShape));
 
+		var shape = new btBvhTriangleMeshShape(cornerModel.meshParts);
+		gameObjectBuilders.put(MESH, new GameObject.Builder(0f, cornerModel, MESH.name(), shape));
+
 		createGameObjects();
 	}
 
+	GameObject corner;
 	private void createGameObjects() {
+		corner = gameObjectBuilders.get(MESH).build();
+		{
+			corner.rigidBody.setCollisionFlags(corner.rigidBody.getCollisionFlags()
+					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
+			corner.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+			corner.rigidBody.setContactCallbackFilter(0);
+			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
+			corner.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+		}
+		gameObjects.add(corner);
+		dynamicsWorld.addRigidBody(corner.rigidBody);
+
 		ground = gameObjectBuilders.get(GROUND).build();
 		{
 			ground.rigidBody.setCollisionFlags(ground.rigidBody.getCollisionFlags()
