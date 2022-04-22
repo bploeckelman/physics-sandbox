@@ -24,8 +24,10 @@ import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
+import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.physics.bullet.linearmath.LinearMath;
+import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBody;
@@ -250,7 +252,7 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
+//		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		// move the light
 		var radius = 2f;
@@ -301,7 +303,7 @@ public class Main extends ApplicationAdapter {
 
 			// then draw the world normally
 			modelBatch.begin(camera);
-			modelBatch.render(coords, env);
+//			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
 			modelBatch.render(bedInstance, env);
 			modelBatch.render(cornerInstance, env);
@@ -477,7 +479,7 @@ public class Main extends ApplicationAdapter {
 		bedInstance.transform.trn(3f, 3f, 3f);
 		disposables.add(bed);
 
-		cornerModel = loader.loadModel(Gdx.files.internal("corner1.g3db"));
+		cornerModel = loader.loadModel(Gdx.files.internal("corner2.g3db"));
 		cornerInstance = new ModelInstance(cornerModel);
 
 		createGameObjectBuilders();
@@ -516,6 +518,9 @@ public class Main extends ApplicationAdapter {
 			corner.rigidBody.setContactCallbackFilter(0);
 			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
 			corner.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+			// NOTE - motion state changes the world transform, so if we want to manually adjust it to fit, then motion state has to be disabled (so it'll only work for fixed shapes)
+			corner.rigidBody.setMotionState(null);
+			corner.rigidBody.setWorldTransform(corner.rigidBody.getWorldTransform().rotate(Vector3.X, -90f));
 		}
 		gameObjects.add(corner);
 		dynamicsWorld.addRigidBody(corner.rigidBody);
