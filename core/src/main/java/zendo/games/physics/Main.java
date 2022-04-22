@@ -24,10 +24,8 @@ import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
-import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.physics.bullet.linearmath.LinearMath;
-import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBody;
@@ -70,8 +68,8 @@ public class Main extends ApplicationAdapter {
 
 	Model scene;
 	Model terrainModel;
-	Model cornerModel;
-	ModelInstance cornerInstance;
+	Model tileStartModel;
+	ModelInstance tileStartInstance;
 	GameObject ground;
 	GameObject terrain;
 	ModelInstance coords;
@@ -306,7 +304,7 @@ public class Main extends ApplicationAdapter {
 //			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
 			modelBatch.render(bedInstance, env);
-			modelBatch.render(cornerInstance, env);
+			modelBatch.render(tileStartInstance, env);
 			modelBatch.end();
 		}
 
@@ -479,8 +477,8 @@ public class Main extends ApplicationAdapter {
 		bedInstance.transform.trn(3f, 3f, 3f);
 		disposables.add(bed);
 
-		cornerModel = loader.loadModel(Gdx.files.internal("corner2.g3db"));
-		cornerInstance = new ModelInstance(cornerModel);
+		tileStartModel = loader.loadModel(Gdx.files.internal("start.g3db"));
+		tileStartInstance = new ModelInstance(tileStartModel);
 
 		createGameObjectBuilders();
 	}
@@ -502,28 +500,32 @@ public class Main extends ApplicationAdapter {
 		var triangleMeshShape = new btBvhTriangleMeshShape(terrainMeshParts);
 		gameObjectBuilders.put(TERRAIN,  new GameObject.Builder(0f, terrainModel, TERRAIN.name(), triangleMeshShape));
 
-		var shape = new btBvhTriangleMeshShape(cornerModel.meshParts);
-		gameObjectBuilders.put(MESH, new GameObject.Builder(0f, cornerModel, MESH.name(), shape));
+		var shape = new btBvhTriangleMeshShape(tileStartModel.meshParts);
+		gameObjectBuilders.put(MESH, new GameObject.Builder(0f, tileStartModel, MESH.name(), shape));
 
 		createGameObjects();
 	}
 
-	GameObject corner;
+	GameObject start;
 	private void createGameObjects() {
-		corner = gameObjectBuilders.get(MESH).build();
+		start = gameObjectBuilders.get(MESH).build();
 		{
-			corner.rigidBody.setCollisionFlags(corner.rigidBody.getCollisionFlags()
+			start.rigidBody.setCollisionFlags(start.rigidBody.getCollisionFlags()
 					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
-			corner.rigidBody.setContactCallbackFlag(GROUND_FLAG);
-			corner.rigidBody.setContactCallbackFilter(0);
+			start.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+			start.rigidBody.setContactCallbackFilter(0);
 			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
-			corner.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+			start.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+			// TODO - can use this to adjust the collision shape's scale to match the g3db model's scaling
+			start.rigidBody.getCollisionShape().setLocalScaling(new Vector3(10f, 10f, 10f));
 			// NOTE - motion state changes the world transform, so if we want to manually adjust it to fit, then motion state has to be disabled (so it'll only work for fixed shapes)
-			corner.rigidBody.setMotionState(null);
-			corner.rigidBody.setWorldTransform(corner.rigidBody.getWorldTransform().rotate(Vector3.X, -90f));
+			start.rigidBody.setMotionState(null);
+			var transform = start.rigidBody.getWorldTransform();
+			transform.rotate(Vector3.X, -90f);
+			start.rigidBody.setWorldTransform(transform);
 		}
-		gameObjects.add(corner);
-		dynamicsWorld.addRigidBody(corner.rigidBody);
+		gameObjects.add(start);
+		dynamicsWorld.addRigidBody(start.rigidBody);
 
 		ground = gameObjectBuilders.get(GROUND).build();
 		{
