@@ -80,8 +80,9 @@ public class Main extends ApplicationAdapter {
 	final Vector3 lightDir = new Vector3();
 	final Color lightColor = Color.WHITE.cpy();
 
-	final float MAX_LIGHT_TIMER = 1f;
+	final float MAX_LIGHT_TIMER = 3f;
 	float lightTimer = MAX_LIGHT_TIMER;
+	float lightAngle = 0f;
 
 	final Array<GameObject> gameObjects = new Array<>();
 	final Array<GameObject> toBeRemoved = new Array<>();
@@ -250,12 +251,21 @@ public class Main extends ApplicationAdapter {
 		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		// move the light
+		var radius = 2f;
+		var speed = 50f;
+		lightAngle += delta * speed;
+		lightDir.set(
+				radius * MathUtils.cosDeg(lightAngle),
+				-1f,
+				radius * MathUtils.sinDeg(lightAngle)
+		).nor();
+		directionalShadowLight.setDirection(lightDir);
+
 		lightTimer -= delta;
 		if (lightTimer <= 0f) {
 			lightTimer = MAX_LIGHT_TIMER;
-			lightDir.setToRandomDirection();
 			lightColor.set(MathUtils.random(0.5f, 1f), MathUtils.random(0.5f, 1f), MathUtils.random(0.5f, 1f), 1f);
-			directionalShadowLight.set(lightColor, lightDir);
+			directionalShadowLight.setColor(lightColor);
 		}
 
 		dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
