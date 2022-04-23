@@ -40,9 +40,9 @@ import static zendo.games.physics.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter {
 
-	private static final short OBJECT_FLAG = 1 << 7;
-	private static final short SOFT_FLAG   = 1 << 8;
-	private static final short GROUND_FLAG = 1 << 9;
+	public static final short OBJECT_FLAG = 1 << 7;
+	public static final short SOFT_FLAG   = 1 << 8;
+	public static final short GROUND_FLAG = 1 << 9;
 
 	PerspectiveCamera camera;
 	CameraInputController camController;
@@ -74,6 +74,8 @@ public class Main extends ApplicationAdapter {
 	GameObject terrain;
 	ModelInstance coords;
 
+	Tile startTile;
+
 	private final int heightValueRows = 20;
 	private final int heightValueCols = 20;
 	private final float[] heights = new float[heightValueRows * heightValueCols];
@@ -92,8 +94,8 @@ public class Main extends ApplicationAdapter {
 
 	final Array<Disposable> disposables = new Array<>();
 
-	final float MAX_SPAWN_TIME = 0.1f;
-//	final float MAX_SPAWN_TIME = 1f;
+//	final float MAX_SPAWN_TIME = 0.1f;
+	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -288,6 +290,8 @@ public class Main extends ApplicationAdapter {
 			debugModelBatch.begin(camera);
 			debugModelBatch.render(coords, env);
 			debugModelBatch.render(gameObjects, env);
+			debugModelBatch.render(startTile.instance, env);
+			debugModelBatch.render(straightTile.instance, env);
 			debugModelBatch.end();
 		} else {
 			// first draw the shadows
@@ -295,16 +299,19 @@ public class Main extends ApplicationAdapter {
 			{
 				shadowBatch.begin(directionalShadowLight.getCamera());
 				shadowBatch.render(gameObjects);
+				// TODO - the Tile instances break here due to a missing DiffuseAttribute?
 				shadowBatch.end();
 			}
 			directionalShadowLight.end();
 
 			// then draw the world normally
 			modelBatch.begin(camera);
-//			modelBatch.render(coords, env);
+			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
 			modelBatch.render(bedInstance, env);
-			modelBatch.render(tileStartInstance, env);
+			for (var tile : tiles) {
+				modelBatch.render(tile.instance, env);
+			}
 			modelBatch.end();
 		}
 
@@ -331,6 +338,9 @@ public class Main extends ApplicationAdapter {
 
 		gameObjects.clear();
 		gameObjectBuilders.clear();
+
+		tiles.forEach(Tile::dispose);
+		tiles.clear();
 
 		super.dispose();
 	}
@@ -444,11 +454,11 @@ public class Main extends ApplicationAdapter {
 
 			builder.node().id = CAPSULE.name();
 			meshPartBuilder = builder.part(CAPSULE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.CYAN)));
-			CapsuleShapeBuilder.build(meshPartBuilder, 0.5f, 2f, 10);
+			CapsuleShapeBuilder.build(meshPartBuilder, 0.5f, 1f, 10);
 
 			builder.node().id = CYLINDER.name();
 			meshPartBuilder = builder.part(CYLINDER.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.MAGENTA)));
-			CylinderShapeBuilder.build(meshPartBuilder, 1f, 2f, 1f, 10);
+			CylinderShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10);
 
 			builder.node().id = COORDS.name();
 			float axisLength = 10f;
@@ -458,7 +468,7 @@ public class Main extends ApplicationAdapter {
 			var coordMaterial = new Material(ColorAttribute.createDiffuse(Color.WHITE));
 			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, coordMaterial);
 			meshPartBuilder.setColor(Color.WHITE);
-			SphereShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10, 10);
+			SphereShapeBuilder.build(meshPartBuilder, 0.1f, 0.1f, 0.1f, 10, 10);
 			meshPartBuilder.setColor(Color.RED);
 			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
 			meshPartBuilder.setColor(Color.GREEN);
@@ -479,8 +489,11 @@ public class Main extends ApplicationAdapter {
 
 		tileStartModel = loader.loadModel(Gdx.files.internal("start.g3db"));
 		tileStartInstance = new ModelInstance(tileStartModel);
+		tileStartInstance.transform.trn(5f, 0f, 5f);
 
 		createGameObjectBuilders();
+
+		createTiles();
 	}
 
 	private void createGameObjectBuilders() {
@@ -508,24 +521,44 @@ public class Main extends ApplicationAdapter {
 
 	GameObject start;
 	private void createGameObjects() {
-		start = gameObjectBuilders.get(MESH).build();
-		{
-			start.rigidBody.setCollisionFlags(start.rigidBody.getCollisionFlags()
-					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
-			start.rigidBody.setContactCallbackFlag(GROUND_FLAG);
-			start.rigidBody.setContactCallbackFilter(0);
-			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
-			start.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
-			// TODO - can use this to adjust the collision shape's scale to match the g3db model's scaling
-			start.rigidBody.getCollisionShape().setLocalScaling(new Vector3(10f, 10f, 10f));
-			// NOTE - motion state changes the world transform, so if we want to manually adjust it to fit, then motion state has to be disabled (so it'll only work for fixed shapes)
-			start.rigidBody.setMotionState(null);
-			var transform = start.rigidBody.getWorldTransform();
-			transform.rotate(Vector3.X, -90f);
-			start.rigidBody.setWorldTransform(transform);
-		}
-		gameObjects.add(start);
-		dynamicsWorld.addRigidBody(start.rigidBody);
+		/*
+		 * What's all needed to create a minigolf 'tile':
+		 * - a model
+		 *   - exported from blender as fbx either at 0.01 scale with no scaling on the associated collision shape
+		 *   - or exported at 0.1 scale and have to scale the collision shape by 10x (not sure why btBvhTriangleMeshShape creates at a 0.01x scale by default)
+		 *   - NOTE - probably easiest to export at 0.01 and not have to scale the collision shape at all, plus things should work on a unit scale for things like translation
+		 * - the model instance to draw (currently a part of GameObject)
+		 * - add to collision flags: CF_KINEMATIC_OBJECT
+		 * - set contactcallback params (*_FLAG, 0)
+		 * - set mass to 0f
+		 * - no motionState instance (or at least not the same one as 'normal' gameobjects)
+		 * - activation state set to DISABLE_DEACTIVATION
+		 * - tile models are centered on origin (except for Y), so each tile on the playfield covers x+/-0.5f,z+/-0.5f unless we shift them by half units
+		 */
+
+
+
+//		start = gameObjectBuilders.get(MESH).build();
+//		{
+//			start.rigidBody.setCollisionFlags(start.rigidBody.getCollisionFlags()
+//					| btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
+//			start.rigidBody.setContactCallbackFlag(GROUND_FLAG);
+//			start.rigidBody.setContactCallbackFilter(0);
+//			// NOTE - since this is moved manually the rigid body's activation state shouldn't be managed by Bullet
+//			start.rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+//			// TODO - can use this to adjust the collision shape's scale to match the g3db model's scaling
+//			start.rigidBody.getCollisionShape().setLocalScaling(new Vector3(10f, 10f, 10f));
+//			// NOTE - motion state changes the world transform, so if we want to manually adjust it to fit, then motion state has to be disabled (so it'll only work for fixed shapes)
+//			start.rigidBody.setMotionState(null);
+//			var transform = start.rigidBody.getWorldTransform();
+//			transform.rotate(Vector3.X, -90f);
+//			transform.trn(5f, 0f, 5f);
+//			start.rigidBody.setWorldTransform(transform);
+//			// have to translate the render component too
+//			start.transform.trn(5f, 0f, 5f);
+//		}
+//		gameObjects.add(start);
+//		dynamicsWorld.addRigidBody(start.rigidBody);
 
 		ground = gameObjectBuilders.get(GROUND).build();
 		{
@@ -552,12 +585,31 @@ public class Main extends ApplicationAdapter {
 //		gameObjects.add(terrain);
 //		dynamicsWorld.addRigidBody(terrain.rigidBody);
 
-		int numStartingObjects = 5;
-		for (int i = 0; i < numStartingObjects; i++) {
-			spawnObject();
-		}
+//		int numStartingObjects = 1;
+//		for (int i = 0; i < numStartingObjects; i++) {
+//			spawnObject();
+//		}
 
 		createSoftBodyObjectTEST();
+	}
+
+	private Model startModel;
+	private Model straightModel;
+	private Tile straightTile;
+	private Array<Tile> tiles = new Array<>();
+	private void createTiles() {
+		var loader = new G3dModelLoader(new UBJsonReader());
+		startModel = loader.loadModel(Gdx.files.internal("tile-start.g3db"));
+		var startTile = new Tile(startModel, "tmpParent", 0, -2);
+		tiles.add(startTile);
+		dynamicsWorld.addRigidBody(startTile.body);
+
+		straightModel = loader.loadModel(Gdx.files.internal("straight.g3db"));
+		for (int i = 0; i < 4; i++) {
+			var straightTile = new Tile(straightModel, "tmpParent", 0, startTile.coord.z() + 1 + i);
+			tiles.add(straightTile);
+			dynamicsWorld.addRigidBody(straightTile.body);
+		}
 	}
 
 	private btSoftBody softBody;
