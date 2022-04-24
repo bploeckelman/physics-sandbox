@@ -2,12 +2,10 @@ package zendo.games.physics;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
@@ -95,8 +93,8 @@ public class Main extends ApplicationAdapter {
 
 	final Array<Disposable> disposables = new Array<>();
 
-//	final float MAX_SPAWN_TIME = 0.1f;
-	final float MAX_SPAWN_TIME = 1f;
+	final float MAX_SPAWN_TIME = 0.1f;
+//	final float MAX_SPAWN_TIME = 1f;
 	float spawnTime = MAX_SPAWN_TIME;
 
 	final float speed = 160f;
@@ -107,6 +105,7 @@ public class Main extends ApplicationAdapter {
 	Texture texture;
 	Model bed;
 	ModelInstance bedInstance;
+	public static Texture pixel;
 
 	boolean doDrop = false;
 
@@ -207,6 +206,15 @@ public class Main extends ApplicationAdapter {
 		font = new BitmapFont();
 		texture = new Texture(Gdx.files.internal("prototype-grid-orange.png"), true);
 
+		// create a single pixel texture and associated region
+		var pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+		{
+			pixmap.setColor(Color.WHITE);
+			pixmap.drawPixel(0, 0);
+			pixel = new Texture(pixmap);
+		}
+		pixmap.dispose();
+
 		createScene();
 
 		disposables.addAll(
@@ -305,7 +313,9 @@ public class Main extends ApplicationAdapter {
 			{
 				shadowBatch.begin(directionalShadowLight.getCamera());
 				shadowBatch.render(gameObjects);
-				// TODO - the Tile instances break here due to a missing DiffuseAttribute?
+				for (var tile : tiles) {
+					shadowBatch.render(tile.instance);
+				}
 				shadowBatch.end();
 			}
 			directionalShadowLight.end();
@@ -347,6 +357,8 @@ public class Main extends ApplicationAdapter {
 
 		tiles.forEach(Tile::dispose);
 		tiles.clear();
+
+		pixel.dispose();
 
 		super.dispose();
 	}

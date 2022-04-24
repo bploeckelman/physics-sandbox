@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.Collision;
 import com.badlogic.gdx.physics.bullet.collision.btBvhTriangleMeshShape;
@@ -38,6 +39,16 @@ public class Tile implements Disposable {
         this.coord = new Coord(x, z);
 
         var scale = new Vector3(DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE);
+
+        // NOTE - this 'fixes' an NPE when rendering the tile instances in the shadow model batch
+        //   it fails to get a diffuse attribute from these models and NPEs in DefaultShader:234
+        //   adding one manually with a plain white pixel texture seems to resolve it
+        for (var material : this.model.materials) {
+            var diffuse = material.get(TextureAttribute.Diffuse);
+            if (diffuse == null) {
+                material.set(TextureAttribute.createDiffuse(Main.pixel));
+            }
+        }
 
         this.instance = new ModelInstance(model, nodeId);
         this.instance.transform.scale(scale.x, scale.y, scale.z);
