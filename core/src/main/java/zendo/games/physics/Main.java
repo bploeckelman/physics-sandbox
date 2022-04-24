@@ -75,6 +75,7 @@ public class Main extends ApplicationAdapter {
 	ModelInstance coords;
 
 	Tile startTile;
+	boolean drawTiles = true;
 
 	private final int heightValueRows = 20;
 	private final int heightValueCols = 20;
@@ -106,6 +107,8 @@ public class Main extends ApplicationAdapter {
 	Texture texture;
 	Model bed;
 	ModelInstance bedInstance;
+
+	boolean doDrop = false;
 
 	// ------------------------------------------------------------------------
 	// Data structures
@@ -194,7 +197,7 @@ public class Main extends ApplicationAdapter {
 		debugDrawer = new DebugDrawer();
 		debugDrawer.setSpriteBatch(spriteBatch);
 		debugDrawer.setShapeRenderer(shapeRenderer);
-		debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe);
+		debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe | btIDebugDraw.DebugDrawModes.DBG_DrawContactPoints);
 
 		dynamicsWorld = new btSoftRigidDynamicsWorld(dispatcher, broadphase, constraintSolver, collisionConfig);
 		dynamicsWorld.setDebugDrawer(debugDrawer);
@@ -236,6 +239,9 @@ public class Main extends ApplicationAdapter {
 
 		if (Gdx.input.isKeyJustPressed(Keys.ESCAPE)) {
 			Gdx.app.exit();
+		}
+		if (Gdx.input.isKeyJustPressed(Keys.SPACE)) {
+			doDrop = !doDrop;
 		}
 		if (Gdx.input.isKeyJustPressed(Keys.NUM_1)) {
 			Config.wireframeDebugDraw = !Config.wireframeDebugDraw;
@@ -308,7 +314,7 @@ public class Main extends ApplicationAdapter {
 			modelBatch.begin(camera);
 			modelBatch.render(coords, env);
 			modelBatch.render(gameObjects, env);
-			modelBatch.render(bedInstance, env);
+//			modelBatch.render(bedInstance, env);
 			for (var tile : tiles) {
 				modelBatch.render(tile.instance, env);
 			}
@@ -442,7 +448,7 @@ public class Main extends ApplicationAdapter {
 
 			builder.node().id = SPHERE.name();
 			meshPartBuilder = builder.part(SPHERE.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.GREEN)));
-			SphereShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10, 10);
+			SphereShapeBuilder.build(meshPartBuilder, 1.0f, 1.0f, 1.0f, 10, 10);
 
 			builder.node().id = BOX.name();
 			meshPartBuilder = builder.part(BOX.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.BLUE)));
@@ -600,6 +606,7 @@ public class Main extends ApplicationAdapter {
 	private void createTiles() {
 		var loader = new G3dModelLoader(new UBJsonReader());
 		startModel = loader.loadModel(Gdx.files.internal("tile-start.g3db"));
+
 		var startTile = new Tile(startModel, "tmpParent", 0, -2);
 		tiles.add(startTile);
 		dynamicsWorld.addRigidBody(startTile.body);

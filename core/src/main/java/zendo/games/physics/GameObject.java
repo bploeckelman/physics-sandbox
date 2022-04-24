@@ -26,7 +26,8 @@ public class GameObject extends ModelInstance implements Disposable {
         private static final int numTypes = Type.values().length;
         public static Type random() {
             // NOTE - skips GROUND, TERRAIN, and COORDS types
-            return values[MathUtils.random(4, numTypes - 1)];
+            return SPHERE;
+//            return values[MathUtils.random(4, numTypes - 1)];
         }
     }
 

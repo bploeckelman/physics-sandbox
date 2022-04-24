@@ -37,23 +37,19 @@ public class Tile implements Disposable {
         this.mass = DEFAULT_MASS;
         this.coord = new Coord(x, z);
 
-//        this.instance = new ModelInstance(model);
+        var scale = new Vector3(DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE);
+
         this.instance = new ModelInstance(model, nodeId);
+        this.instance.transform.scale(scale.x, scale.y, scale.z);
+        this.instance.transform.trn(coord.x * scale.x, 0f, coord.z * scale.z);
+
         // add a blending attribute so alpha in the diffuse attribute is respected
         if (this.instance.materials.isEmpty()) {
             this.instance.materials.add(new Material());
         }
         this.instance.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));
 
-        var scale = new Vector3(DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE);
-
-        var meshParts = model.meshParts;
-//        var node = model.getNode(nodeId);
-//        var meshParts = new Array<MeshPart>();
-//        for (var nodePart : node.parts) {
-//            meshParts.add(nodePart.meshPart);
-//        }
-        this.shape = new btBvhTriangleMeshShape(meshParts);
+        this.shape = new btBvhTriangleMeshShape(model.meshParts);
         this.shape.setLocalScaling(scale);
 
         this.info = new btRigidBody.btRigidBodyConstructionInfo(mass, null, shape, Vector3.Zero.cpy());
@@ -69,9 +65,6 @@ public class Tile implements Disposable {
         transform.rotate(Vector3.X, -90f);
         transform.trn(coord.x * scale.x, 0f, coord.z * scale.z);
         this.body.setWorldTransform(transform);
-
-        this.instance.transform.scale(scale.x, scale.y, scale.z);
-        this.instance.transform.trn(coord.x * scale.x, 0f, coord.z * scale.z);
     }
 
     @Override
