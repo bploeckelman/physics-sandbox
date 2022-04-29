@@ -1,0 +1,124 @@
+package zendo.games.physics;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.IntIntMap;
+
+/**
+ * @author Marcus Brummer
+ * @version 24-11-2015
+ */
+class FreeCameraController extends InputAdapter {
+
+    private final float SPEED_0 = 10f;
+    private final float SPEED_1 = 100f;
+    private final float SPEED_2 = 500f;
+
+    private Camera camera;
+    private final IntIntMap keys;
+
+    private final int STRAFE_LEFT = Input.Keys.A;
+    private final int STRAFE_RIGHT = Input.Keys.D;
+    private final int FORWARD = Input.Keys.W;
+    private final int BACKWARD = Input.Keys.S;
+    private final int UP = Input.Keys.Q;
+    private final int DOWN = Input.Keys.E;
+
+    // TODO - don't allow slight roll with middle mouse
+
+    private float velocity = SPEED_0;
+    private float degreesPerPixel = 0.1f;
+
+    private final Vector3 tmp = new Vector3();
+
+    public FreeCameraController(Camera camera) {
+        this.camera = camera;
+        this.keys = new IntIntMap();
+    }
+
+    @Override
+    public boolean keyDown(int keycode) {
+        keys.put(keycode, keycode);
+        return false;
+    }
+
+    @Override
+    public boolean keyUp(int keycode) {
+        keys.remove(keycode, 0);
+        return false;
+    }
+
+    @Override
+    public boolean touchDragged(int screenX, int screenY, int pointer) {
+        if (Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
+            var deltaX = -Gdx.input.getDeltaX() * degreesPerPixel;
+            var deltaY = -Gdx.input.getDeltaY() * degreesPerPixel;
+            if (camera != null) {
+                camera.direction.rotate(camera.up, deltaX);
+                tmp.set(camera.direction).crs(camera.up).nor();
+                camera.direction.rotate(tmp, deltaY);
+            }
+        }
+        return false;
+    }
+
+    public void update(float deltaTime) {
+        if (keys.containsKey(FORWARD)) {
+            tmp.set(camera.direction).nor().scl(deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        if (keys.containsKey(BACKWARD)) {
+            tmp.set(camera.direction).nor().scl(-deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        if (keys.containsKey(STRAFE_LEFT)) {
+            tmp.set(camera.direction).crs(camera.up).nor().scl(-deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        if (keys.containsKey(STRAFE_RIGHT)) {
+            tmp.set(camera.direction).crs(camera.up).nor().scl(deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        if (keys.containsKey(UP)) {
+            tmp.set(camera.up).nor().scl(deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        if (keys.containsKey(DOWN)) {
+            tmp.set(camera.up).nor().scl(-deltaTime * velocity);
+            camera.position.add(tmp);
+        }
+        camera.update(true);
+    }
+
+    /**
+     * Sets the camera that is controlled
+     *
+     * @param camera
+     */
+    public void setCamera(Camera camera) {
+        this.camera = camera;
+    }
+
+    /**
+     * Sets the velocity in units per second for moving forward, backward and
+     * strafing left/right.
+     *
+     * @param velocity the velocity in units per second
+     */
+    public void setVelocity(float velocity) {
+        this.velocity = velocity;
+    }
+
+    /**
+     * Sets how many degrees to rotate per pixel the mouse moved.
+     *
+     * @param degreesPerPixel
+     */
+    public void setDegreesPerPixel(float degreesPerPixel) {
+        this.degreesPerPixel = degreesPerPixel;
+    }
+
+}

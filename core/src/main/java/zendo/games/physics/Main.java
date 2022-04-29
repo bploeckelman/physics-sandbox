@@ -5,7 +5,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
@@ -13,7 +12,10 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
 import com.badlogic.gdx.graphics.g3d.model.MeshPart;
-import com.badlogic.gdx.graphics.g3d.utils.*;
+import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
+import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -43,7 +45,7 @@ public class Main extends ApplicationAdapter {
 	public static final short GROUND_FLAG = 1 << 9;
 
 	PerspectiveCamera camera;
-	CameraInputController camController;
+	FreeCameraController cameraController;
 
 	Environment env;
 	ModelBatch modelBatch;
@@ -179,8 +181,8 @@ public class Main extends ApplicationAdapter {
 		camera.lookAt(0f, 4f, 0f);
 		camera.update();
 
-		camController = new CameraInputController(camera);
-		Gdx.input.setInputProcessor(camController);
+		cameraController = new FreeCameraController(camera);
+		Gdx.input.setInputProcessor(cameraController);
 
 		collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
@@ -266,7 +268,7 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-//		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
+		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		// move the light
 		var radius = 2f;
@@ -291,7 +293,7 @@ public class Main extends ApplicationAdapter {
 		// remove dead objects
 		removeDeadGameObjects();
 
-		camController.update();
+		cameraController.update(delta);
 	}
 
 	@Override
