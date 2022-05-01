@@ -5,7 +5,6 @@ import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
@@ -61,6 +60,7 @@ public class GameObject extends ModelInstance implements Disposable {
         }
     }
 
+    public final Type type;
     public final Model model;
     public final btRigidBody rigidBody;
     public final MotionState motionState;
@@ -69,6 +69,23 @@ public class GameObject extends ModelInstance implements Disposable {
 
     private GameObject(Model model, String nodeId, btRigidBody.btRigidBodyConstructionInfo constructionInfo) {
         super(model, nodeId);
+        this.type = null;
+        this.model = model;
+        this.motionState = new MotionState(transform);
+        this.rigidBody = new btRigidBody(constructionInfo);
+        this.rigidBody.setMotionState(motionState);
+        this.isAlive = true;
+
+        // add a blending attribute so alpha in the diffuse attribute is respected
+        if (this.materials.isEmpty()) {
+            this.materials.add(new Material());
+        }
+        this.materials.first().set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA));
+    }
+
+    private GameObject(Model model, Type type, btRigidBody.btRigidBodyConstructionInfo constructionInfo) {
+        super(model, type.name());
+        this.type = type;
         this.model = model;
         this.motionState = new MotionState(transform);
         this.rigidBody = new btRigidBody(constructionInfo);
@@ -98,6 +115,7 @@ public class GameObject extends ModelInstance implements Disposable {
     public static class Builder implements Disposable {
         private static final Vector3 localInertia = new Vector3();
 
+        private final Type type;
         private final Model model;
         private final String nodeId;
         private final btCollisionShape collisionShape;
@@ -110,8 +128,21 @@ public class GameObject extends ModelInstance implements Disposable {
          * @param collisionShape the Bullet collision shape to use for the constructed GameObject
          */
         public Builder(float mass, Model model, String nodeId, btCollisionShape collisionShape) {
+            this.type = null;
             this.model = model;
             this.nodeId = nodeId;
+            this.collisionShape = collisionShape;
+            Builder.localInertia.setZero();
+            if (mass > 0f) {
+                collisionShape.calculateLocalInertia(mass, Builder.localInertia);
+            }
+            this.constructionInfo = new btRigidBody.btRigidBodyConstructionInfo(mass, null, collisionShape, Builder.localInertia);
+        }
+
+        public Builder(float mass, Model model, Type type, btCollisionShape collisionShape) {
+            this.type = type;
+            this.model = model;
+            this.nodeId = type.name();
             this.collisionShape = collisionShape;
             Builder.localInertia.setZero();
             if (mass > 0f) {
@@ -124,7 +155,11 @@ public class GameObject extends ModelInstance implements Disposable {
          * @return a new GameObject with the parameters from this Builder
          */
         public GameObject build() {
-            return new GameObject(model, nodeId, constructionInfo);
+            if (type != null) {
+                return new GameObject(model, type, constructionInfo);
+            } else {
+                return new GameObject(model, nodeId, constructionInfo);
+            }
         }
 
         @Override

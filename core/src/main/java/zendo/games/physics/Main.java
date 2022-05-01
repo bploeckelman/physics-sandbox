@@ -2,6 +2,8 @@ package zendo.games.physics;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -18,6 +20,7 @@ import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
@@ -38,7 +41,7 @@ import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import static zendo.games.physics.GameObject.Type.*;
 
-public class Main extends ApplicationAdapter {
+public class Main extends ApplicationAdapter implements InputProcessor {
 
 	public static final short OBJECT_FLAG = 1 << 7;
 	public static final short SOFT_FLAG   = 1 << 8;
@@ -182,7 +185,8 @@ public class Main extends ApplicationAdapter {
 		camera.update();
 
 		cameraController = new FreeCameraController(camera);
-		Gdx.input.setInputProcessor(cameraController);
+		var inputMux = new InputMultiplexer(this, cameraController);
+		Gdx.input.setInputProcessor(inputMux);
 
 		collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
@@ -242,6 +246,9 @@ public class Main extends ApplicationAdapter {
 				//  https://libgdx.com/wiki/extensions/physics/bullet/bullet-wrapper-debugging
 //				, dynamicsWorld
 		);
+
+		// very stupid, same thing as is done to 'solve' NPE in Tile
+		selectedMaterial.set(TextureAttribute.createDiffuse(pixel));
 	}
 
 	public void update() {
@@ -268,7 +275,7 @@ public class Main extends ApplicationAdapter {
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
-		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
+//		ground.transform.setTranslation(0, 0f + MathUtils.sinDeg(angle) * 3f, 0f);
 
 		// move the light
 		var radius = 2f;
@@ -518,12 +525,12 @@ public class Main extends ApplicationAdapter {
 
 	private void createGameObjectBuilders() {
 		// TODO - this duplicates size parameters from ModelBuilder setup in createScene(), easy to get wrong so centralize
-		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND.name(),   new btBox2dShape(new Vector3(GROUND_SIZE / 2, 0f, GROUND_SIZE / 2))));
-		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(1f, scene, SPHERE.name(),   new btSphereShape(0.5f)));
-		gameObjectBuilders.put(BOX,      new GameObject.Builder(1f, scene, BOX.name(),      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
-		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE.name(),     new btConeShape(0.5f, 2f)));
-		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(1f, scene, CAPSULE.name(),  new btCapsuleShape(0.5f, 1f)));
-		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(1f, scene, CYLINDER.name(), new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
+		gameObjectBuilders.put(GROUND,   new GameObject.Builder(0f, scene, GROUND,   new btBox2dShape(new Vector3(GROUND_SIZE / 2, 0f, GROUND_SIZE / 2))));
+		gameObjectBuilders.put(SPHERE,   new GameObject.Builder(1f, scene, SPHERE,   new btSphereShape(0.5f)));
+		gameObjectBuilders.put(BOX,      new GameObject.Builder(1f, scene, BOX,      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f))));
+		gameObjectBuilders.put(CONE,     new GameObject.Builder(1f, scene, CONE,     new btConeShape(0.5f, 2f)));
+		gameObjectBuilders.put(CAPSULE,  new GameObject.Builder(1f, scene, CAPSULE,  new btCapsuleShape(0.5f, 1f)));
+		gameObjectBuilders.put(CYLINDER, new GameObject.Builder(1f, scene, CYLINDER, new btCylinderShape(new Vector3(0.5f, 1f, 0.5f))));
 
 		var terrainNodeParts = terrainModel.getNode(TERRAIN.name()).parts;
 		var terrainMeshParts = new Array<MeshPart>();
@@ -708,5 +715,102 @@ public class Main extends ApplicationAdapter {
 			object.rigidBody.setUserValue(i);
 		}
 	}
+
+	private final Vector3 position = new Vector3();
+	private int getObject(int screenX, int screenY) {
+		final float radius = 0.5f; // TODO - store radius in GameObject if type is sphere (and we allow different radii)
+
+		var pickRay = camera.getPickRay(screenX, screenY);
+		var result = -1;
+		var distance = -1f;
+		for (int i = 0; i < gameObjects.size; i++) {
+			var object = gameObjects.get(i);
+			if (object.type != SPHERE) continue;
+
+			object.transform.getTranslation(position);
+//			position.add(object.center); // TODO - game objects don't have a 'center' position at the moment
+			var dist2 = pickRay.origin.dst2(position);
+			if (distance >= 0f && dist2 > distance) continue;
+			if (Intersector.intersectRaySphere(pickRay, position, radius, null)) {
+				result = i;
+				distance = dist2;
+			}
+		}
+		return result;
+	}
+
+	// ------------------------------------------------------------------------
+	// InputProcessor implementation
+	// ------------------------------------------------------------------------
+
+	@Override
+	public boolean keyDown(int keycode) {
+		return false;
+	}
+
+	@Override
+	public boolean keyUp(int keycode) {
+		return false;
+	}
+
+	@Override
+	public boolean keyTyped(char character) {
+		return false;
+	}
+
+	@Override
+	public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+		return false;
+	}
+
+	private final Material originalMaterial = new Material();
+	private final Material selectedMaterial = new Material(ColorAttribute.createDiffuse(Color.MAGENTA));
+	private int selectedObject = -1;
+
+	@Override
+	public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+		int selectedIndex = getObject(screenX, screenY);
+		if (selectedIndex == selectedObject) return false;
+		if (selectedObject != -1) {
+			// reset originally currently selected object's material
+			var material = gameObjects.get(selectedObject).materials.first();
+			material.clear();
+			material.set(originalMaterial);
+		}
+
+		selectedObject = selectedIndex;
+		if (selectedObject != -1) {
+			var material = gameObjects.get(selectedObject).materials.first();
+
+			// save the object's original material for when it's deselected later
+			originalMaterial.clear();
+			originalMaterial.set(material);
+
+			// set the object's material to the 'selected' material
+			material.clear();
+			material.set(selectedMaterial);
+
+			return true;
+		}
+
+		return false;
+	}
+
+	@Override
+	public boolean touchDragged(int screenX, int screenY, int pointer) {
+		return false;
+	}
+
+	@Override
+	public boolean mouseMoved(int screenX, int screenY) {
+		return false;
+	}
+
+	@Override
+	public boolean scrolled(float amountX, float amountY) {
+		return false;
+	}
+
+
 
 }
