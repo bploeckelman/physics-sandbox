@@ -23,6 +23,8 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.collision.*;
@@ -181,7 +183,7 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 
 		camera = new PerspectiveCamera(Config.fov, Config.width, Config.height);
 		camera.position.set(15f, 10f, 15f);
-		camera.lookAt(0f, 4f, 0f);
+		camera.lookAt(0f, 10f, 0f);
 		camera.update();
 
 		cameraController = new FreeCameraController(camera);
@@ -267,11 +269,11 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 			Config.bulletDebugDraw = !Config.bulletDebugDraw;
 		}
 
-		spawnTime -= delta;
-		if (spawnTime <= 0) {
-			spawnTime = MAX_SPAWN_TIME;
-			spawnObject();
-		}
+//		spawnTime -= delta;
+//		if (spawnTime <= 0) {
+//			spawnTime = MAX_SPAWN_TIME;
+//			spawnObject();
+//		}
 
 		// move the ground
 		angle = (angle + delta * speed) % 360f;
@@ -348,7 +350,8 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 
 		spriteBatch.begin();
 		font.setColor(Color.BLACK);
-		font.draw(spriteBatch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 10, 20);
+		font.draw(spriteBatch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 10, 40);
+		font.draw(spriteBatch, "DragRay: " + ((dragRay != null) ? dragRay.toString() : ""), 10, 20);
 		font.setColor(Color.WHITE);
 		spriteBatch.end();
 	}
@@ -769,6 +772,10 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 
 	@Override
 	public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+		if (button == 0) {
+			shoot(screenX, screenY);
+		}
+
 		int selectedIndex = getObject(screenX, screenY);
 		if (selectedIndex == selectedObject) return false;
 		if (selectedObject != -1) {
@@ -796,8 +803,17 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 		return false;
 	}
 
+	Ray dragRay = null;
+
 	@Override
 	public boolean touchDragged(int screenX, int screenY, int pointer) {
+		if (selectedObject != -1) {
+			dragRay = camera.getPickRay(screenX, screenY);
+			var distance = -dragRay.origin.y / dragRay.direction.y;
+			position.set(dragRay.direction).scl(distance).add(dragRay.origin);
+			gameObjects.get(selectedObject).transform.setTranslation(position);
+			return true;
+		}
 		return false;
 	}
 
@@ -811,6 +827,32 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 		return false;
 	}
 
+	final BoundingBox boundingBox = new BoundingBox();
+	public void shoot(float x, float y) {
+		var impulse = 30f;
+		var ray = camera.getPickRay(x, y);
+		var angleX = 0f;
+		var angleY = 0f;
+		var angleZ = 0f;
+		var outFront = 2f;
+		var posX = ray.origin.x + ray.direction.x * outFront;
+		var posY = ray.origin.y + ray.direction.y * outFront;
+		var posZ = ray.origin.z + ray.direction.z * outFront;
 
+		var object = gameObjectBuilders.get(GameObject.Type.CAPSULE).build();
+		{
+			object.transform.setFromEulerAngles(angleX, angleY, angleZ);
+			object.transform.trn(posX, posY, posZ);
+			object.rigidBody.proceedToTransform(object.transform);
+			object.rigidBody.setUserValue(gameObjects.size);
+			object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+			object.rigidBody.setContactCallbackFlag(OBJECT_FLAG);
+			object.rigidBody.setContactCallbackFilter(SOFT_FLAG);
+
+			object.rigidBody.applyCentralImpulse(ray.direction.scl(impulse));
+		}
+		gameObjects.add(object);
+		dynamicsWorld.addRigidBody(object.rigidBody);
+	}
 
 }
