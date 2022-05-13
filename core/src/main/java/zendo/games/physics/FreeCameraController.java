@@ -1,6 +1,5 @@
 package zendo.games.physics;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.Camera;
@@ -19,6 +18,7 @@ class FreeCameraController extends InputAdapter {
 
     private Camera camera;
     private final IntIntMap keys;
+    private final Vector3 direction = new Vector3();
 
     private final int STRAFE_LEFT = Input.Keys.A;
     private final int STRAFE_RIGHT = Input.Keys.D;
@@ -31,6 +31,8 @@ class FreeCameraController extends InputAdapter {
 
     private float velocity = SPEED_0;
     private float degreesPerPixel = 0.1f;
+    private int dragX, dragY;
+    public float rotateSpeed = 0.2f;
 
     private final Vector3 tmp = new Vector3();
 
@@ -51,18 +53,39 @@ class FreeCameraController extends InputAdapter {
         return false;
     }
 
+//    @Override
+//    public boolean touchDragged(int screenX, int screenY, int pointer) {
+//        if (Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
+//            var deltaX = -Gdx.input.getDeltaX() * degreesPerPixel;
+//            var deltaY = -Gdx.input.getDeltaY() * degreesPerPixel;
+//            if (camera != null) {
+//                camera.direction.rotate(camera.up, deltaX);
+//                tmp.set(camera.direction).crs(camera.up).nor();
+//                camera.direction.rotate(tmp, deltaY);
+//            }
+//        }
+//        return false;
+//    }
+
     @Override
-    public boolean touchDragged(int screenX, int screenY, int pointer) {
-        if (Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
-            var deltaX = -Gdx.input.getDeltaX() * degreesPerPixel;
-            var deltaY = -Gdx.input.getDeltaY() * degreesPerPixel;
-            if (camera != null) {
-                camera.direction.rotate(camera.up, deltaX);
-                tmp.set(camera.direction).crs(camera.up).nor();
-                camera.direction.rotate(tmp, deltaY);
-            }
+    public boolean mouseMoved(int screenX, int screenY) {
+        direction.set(camera.direction);
+
+        // rotating on the y axis
+        float x = dragX -screenX;
+        // change this Vector3.y with camera.up if you have a dynamic up.
+        camera.rotate(Vector3.Y,x * rotateSpeed);
+
+        // rotating on the x and z axis is different
+        float y = (float) Math.sin( (double)(dragY -screenY)/180f);
+        if (Math.abs(camera.direction.y + y * (rotateSpeed*5.0f))< 0.9) {
+            camera.direction.y +=  y * (rotateSpeed*5.0f) ;
         }
-        return false;
+
+        camera.update();
+        dragX = screenX;
+        dragY = screenY;
+        return true;
     }
 
     public void update(float deltaTime) {

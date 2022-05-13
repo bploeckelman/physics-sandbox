@@ -1,9 +1,6 @@
 package zendo.games.physics;
 
-import com.badlogic.gdx.ApplicationAdapter;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.InputMultiplexer;
-import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.*;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -189,6 +186,7 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 		cameraController = new FreeCameraController(camera);
 		var inputMux = new InputMultiplexer(this, cameraController);
 		Gdx.input.setInputProcessor(inputMux);
+		Gdx.input.setCursorCatched(true);
 
 		collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfig);
