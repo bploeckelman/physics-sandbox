@@ -75,6 +75,7 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 	GameObject ground;
 	GameObject terrain;
 	ModelInstance coords;
+	ModelInstance lightDirInstance;
 
 	Tile startTile;
 	boolean drawTiles = true;
@@ -287,6 +288,7 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 				radius * MathUtils.sinDeg(lightAngle)
 		).nor();
 		directionalShadowLight.setDirection(lightDir);
+		lightDirInstance.transform.idt().rotateTowardDirection(lightDir, Vector3.Y);
 
 		lightTimer -= delta;
 		if (lightTimer <= 0f) {
@@ -331,7 +333,8 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 
 			// then draw the world normally
 			modelBatch.begin(camera);
-			modelBatch.render(coords, env);
+//			modelBatch.render(coords, env);
+			modelBatch.render(lightDirInstance, env);
 			modelBatch.render(gameObjects, env);
 //			modelBatch.render(bedInstance, env);
 			for (var tile : tiles) {
@@ -488,6 +491,10 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 			meshPartBuilder = builder.part(CYLINDER.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.MAGENTA)));
 			CylinderShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10);
 
+			builder.node().id = ARROW.name();
+			meshPartBuilder = builder.part(ARROW.name(), GL20.GL_TRIANGLES, attribs, new Material(ColorAttribute.createDiffuse(Color.YELLOW)));
+			ArrowShapeBuilder.build(meshPartBuilder, 0, 0f, 0, 0, 10f, 0, 0.01f, 1.0f, 10);
+
 			builder.node().id = COORDS.name();
 			float axisLength = 10f;
 			float capLength = 0.1f;
@@ -496,7 +503,7 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 			var coordMaterial = new Material(ColorAttribute.createDiffuse(Color.WHITE));
 			meshPartBuilder = builder.part(COORDS.name(), GL20.GL_TRIANGLES, attribs, coordMaterial);
 			meshPartBuilder.setColor(Color.WHITE);
-			SphereShapeBuilder.build(meshPartBuilder, 0.1f, 0.1f, 0.1f, 10, 10);
+			SphereShapeBuilder.build(meshPartBuilder, 1f, 1f, 1f, 10, 10);
 			meshPartBuilder.setColor(Color.RED);
 			ArrowShapeBuilder.build(meshPartBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
 			meshPartBuilder.setColor(Color.GREEN);
@@ -507,6 +514,8 @@ public class Main extends ApplicationAdapter implements InputProcessor {
 		scene = builder.end();
 
 		coords = new ModelInstance(scene, COORDS.name());
+		lightDirInstance = new ModelInstance(scene, ARROW.name());
+		lightDirInstance.transform.idt().rotateTowardDirection(lightDir, Vector3.Y);
 
 		var loader = new G3dModelLoader(new UBJsonReader());
 
