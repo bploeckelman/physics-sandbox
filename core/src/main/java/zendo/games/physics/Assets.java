@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
@@ -36,6 +37,7 @@ public class Assets implements Disposable {
 
     public Texture pixel;
     public Texture libgdxTexture;
+    public Texture metalTexture;
     public Texture crateTexture;
     public Texture prototypeGridOrange;
     public TextureRegion pixelRegion;
@@ -110,6 +112,9 @@ public class Assets implements Disposable {
 
             mgr.load("prototype-grid-orange.png", Texture.class, param);
             mgr.load("crate.png", Texture.class, param);
+            mgr.load("metal.png", Texture.class, param);
+
+            mgr.load("start.g3db", Model.class);
         }
 
         if (load == Load.SYNC) {
@@ -125,6 +130,7 @@ public class Assets implements Disposable {
 //        atlas = mgr.get("sprites/sprites.atlas");
 
         libgdxTexture = mgr.get("libgdx.png", Texture.class);
+        metalTexture = mgr.get("metal.png", Texture.class);
         crateTexture = mgr.get("crate.png", Texture.class);
         prototypeGridOrange = mgr.get("prototype-grid-orange.png", Texture.class);
 

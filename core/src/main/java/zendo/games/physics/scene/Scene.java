@@ -29,7 +29,7 @@ public class Scene implements Disposable {
 
     private final Model model;
 
-    private enum Nodes { axes, floor, box }
+    private enum Nodes { axes, floor, box, sphere }
 
     public Scene(Engine engine) {
         this.engine = engine;
@@ -37,8 +37,9 @@ public class Scene implements Disposable {
         this.environment = new Environment();
         this.environment.set(ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f));
 
+        var sunlight = new Color(244f / 255f, 233f / 255f, 155f / 255f, 1f);
         var light = new DirectionalLight();
-        light.set(Color.WHITE, -1f, -0.8f, -0.2f);
+        light.set(sunlight, -1f, -0.8f, -0.2f);
         this.environment.add(light);
 
         this.model = buildSceneModel();
@@ -62,6 +63,55 @@ public class Scene implements Disposable {
 
             entity.getComponent(ModelInstanceComponent.class)
                     .transform.setTranslation(i, 0, i);
+        }
+
+        {
+            var name = "model";
+            var objectModel = Game.instance.assets.mgr.get("start.g3db", Model.class);
+            var entity = engine.createEntity()
+                    .add(new NameComponent(name))
+                    .add(new ModelInstanceComponent(objectModel));
+            engine.addEntity(entity);
+
+            var tileSize = 10f;
+            entity.getComponent(ModelInstanceComponent.class)
+                    .transform.setTranslation(
+                            tileSize / 2f,
+                            0,
+                            tileSize / 2f + tileSize
+                    );
+        }
+
+        {
+            var name = "unit box";
+            var entity = engine.createEntity()
+                    .add(new NameComponent(name))
+                    .add(new ModelInstanceComponent(model, Nodes.box.name()));
+            engine.addEntity(entity);
+
+            var tileSize = 10f;
+            entity.getComponent(ModelInstanceComponent.class)
+                    .transform.setToTranslationAndScaling(
+                            tileSize, 0, 0,
+                            tileSize, tileSize, tileSize
+                    );
+        }
+
+        {
+            var name = "unit sphere";
+            var entity = engine.createEntity()
+                    .add(new NameComponent(name))
+                    .add(new ModelInstanceComponent(model, Nodes.sphere.name()));
+            engine.addEntity(entity);
+
+            var tileSize = 10f;
+            entity.getComponent(ModelInstanceComponent.class)
+                    .transform.setToTranslationAndScaling(
+                            tileSize / 2f + tileSize,
+                            tileSize / 2f,
+                            tileSize / 2f + tileSize,
+                            tileSize, tileSize, tileSize
+                    );
         }
     }
 
@@ -143,6 +193,23 @@ public class Scene implements Disposable {
                     )
             );
             BoxShapeBuilder.build(partBuilder, 0.5f, 0.5f, 0.5f, 1f, 1f, 1f);
+
+            // --------------------------------------------
+            // sphere
+            // --------------------------------------------
+            texture = Game.instance.assets.metalTexture;
+
+            id = Nodes.sphere.name();
+            builder.node().id = id;
+            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
+                    new Material(
+                              ColorAttribute.createDiffuse(Color.WHITE)
+                            , ColorAttribute.createSpecular(Color.WHITE)
+                            , FloatAttribute.createShininess(32f)
+                            , TextureAttribute.createDiffuse(texture)
+                    )
+            );
+            SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 12, 12);
         }
         return builder.end();
     }

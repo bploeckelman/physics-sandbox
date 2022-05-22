@@ -6,11 +6,12 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.StringBuilder;
 import zendo.games.physics.sandbox.FreeCameraController;
-import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.NameComponent;
+import zendo.games.physics.scene.systems.RenderSystem;
 
 import static com.badlogic.gdx.Input.Keys;
 import static zendo.games.physics.scene.Components.Families;
@@ -58,6 +59,8 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public void render() {
+        ScreenUtils.clear(Color.SKY, true);
+
         // world ------------------------------------------
         var modelBatch = assets.modelBatch;
         modelBatch.begin(worldCamera);
