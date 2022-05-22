@@ -4,6 +4,7 @@ import aurelienribon.tweenengine.Timeline;
 import aurelienribon.tweenengine.Tween;
 import aurelienribon.tweenengine.TweenManager;
 import aurelienribon.tweenengine.equations.Linear;
+import com.badlogic.ashley.core.Engine;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
@@ -24,6 +25,7 @@ public class Game extends ApplicationAdapter {
     public static Game instance;
 
     public Assets assets;
+    public Engine engine;
     public TweenManager tween;
 
     private OrthographicCamera camera;
@@ -46,8 +48,7 @@ public class Game extends ApplicationAdapter {
         Game.instance = this;
 
         assets = new Assets();
-        transition = new ScreenTransition();
-
+        engine = new Engine();
         tween = new TweenManager();
         Tween.setWaypointsLimit(4);
         Tween.setCombinedAttributesLimit(4);
@@ -61,6 +62,7 @@ public class Game extends ApplicationAdapter {
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.update();
 
+        transition = new ScreenTransition(assets);
         screens = new Screens();
         setScreen(new EditorScreen());
     }
@@ -68,6 +70,7 @@ public class Game extends ApplicationAdapter {
     @Override
     public void dispose() {
         screens.dispose();
+        transition.dispose();
         if (assets.initialized) {
             assets.dispose();
         }
@@ -94,7 +97,9 @@ public class Game extends ApplicationAdapter {
         Time.previous_elapsed = Time.elapsed_millis();
 
         // update systems
+        camera.update();
         tween.update(Time.delta);
+        engine.update(Time.delta);
         screens.current.update(Time.delta);
     }
 
@@ -118,6 +123,8 @@ public class Game extends ApplicationAdapter {
     public void resize(int width, int height) {
         super.resize(width, height);
         screens.current.resize(width, height);
+        camera.setToOrtho(false, width, height);
+        camera.update();
     }
 
     public void setScreen(BaseScreen newScreen) {

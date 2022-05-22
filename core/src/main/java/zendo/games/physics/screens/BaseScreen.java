@@ -1,6 +1,7 @@
 package zendo.games.physics.screens;
 
 import aurelienribon.tweenengine.TweenManager;
+import com.badlogic.ashley.core.Engine;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.controllers.Controller;
@@ -19,6 +20,7 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
 
     public final Game game;
     public final Assets assets;
+    public final Engine engine;
     public final TweenManager tween;
     public final Vector3 pointerPos;
 
@@ -28,6 +30,7 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
     public BaseScreen() {
         this.game = Game.instance;
         this.assets = game.assets;
+        this.engine = game.engine;
         this.tween = game.tween;
         this.pointerPos = new Vector3();
 

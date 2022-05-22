@@ -22,6 +22,7 @@ public class Assets implements Disposable {
 
     public SpriteBatch batch;
     public ModelBatch modelBatch;
+    public ModelBatch debugModelBatch;
     public ModelBatch shadowModelBatch;
     public ShapeDrawer shapes;
     public GlyphLayout layout;
@@ -85,6 +86,7 @@ public class Assets implements Disposable {
 
         batch = new SpriteBatch();
         modelBatch = new ModelBatch();
+        debugModelBatch = new ModelBatch();
         shadowModelBatch = new ModelBatch();
         shapes = new ShapeDrawer(batch, pixelRegion);
         layout = new GlyphLayout();
@@ -135,6 +137,7 @@ public class Assets implements Disposable {
         mgr.dispose();
         batch.dispose();
         modelBatch.dispose();
+        debugModelBatch.dispose();
         shadowModelBatch.dispose();
         pixel.dispose();
         font.dispose();

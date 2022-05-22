@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.GdxRuntimeException;
 import zendo.games.physics.Assets;
 import zendo.games.physics.Config;
 import zendo.games.physics.screens.BaseScreen;
@@ -29,27 +30,26 @@ public class ScreenTransition implements Disposable {
     }
     public Textures textures;
 
-    public void set(Assets assets, Assets.Transition transition) {
-        shader = assets.transitionShaders.get(transition);
+    public ScreenTransition(Assets assets) {
+        if (!assets.initialized) {
+            throw new GdxRuntimeException("Assets must be initialized to create screen transitions");
+        }
+
+        this.inProgress = false;
+        this.percent = new MutableFloat(0);
+        this.shader = assets.transitionShaders.get(Assets.Transition.dreamy);
+
+        this.frameBuffers = new FrameBuffers();
+        this.frameBuffers.source = new FrameBuffer(Pixmap.Format.RGBA8888, Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        this.frameBuffers.dest = new FrameBuffer(Pixmap.Format.RGBA8888, Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+
+        this.textures = new Textures();
+        this.textures.source = frameBuffers.source.getColorBufferTexture();
+        this.textures.dest = frameBuffers.dest.getColorBufferTexture();
     }
 
-    public void init(Assets assets) {
-        if (!assets.initialized) return;
-        if (Gdx.graphics.getWidth() == 0 || Gdx.graphics.getHeight() == 0) return;
-        if (frameBuffers.source != null) {
-            frameBuffers.source.dispose();
-        }
-        if (frameBuffers.dest != null) {
-            frameBuffers.dest.dispose();
-        }
-
-        inProgress = false;
-        percent = new MutableFloat(0);
-        shader = assets.transitionShaders.get(Assets.Transition.dreamy);
-        frameBuffers.source = new FrameBuffer(Pixmap.Format.RGBA8888, Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
-        frameBuffers.dest = new FrameBuffer(Pixmap.Format.RGBA8888, Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
-        textures.source = frameBuffers.source.getColorBufferTexture();
-        textures.dest = frameBuffers.dest.getColorBufferTexture();
+    public void set(Assets assets, Assets.Transition transition) {
+        shader = assets.transitionShaders.get(transition);
     }
 
     public void render(SpriteBatch batch, BaseScreen currentScreen, BaseScreen nextScreen, Camera camera) {
