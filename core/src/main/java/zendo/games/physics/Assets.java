@@ -2,6 +2,7 @@ package zendo.games.physics;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.assets.loaders.TextureLoader;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
@@ -34,6 +35,8 @@ public class Assets implements Disposable {
     public BitmapFont largeFont;
 
     public Texture pixel;
+    public Texture libgdxTexture;
+    public Texture prototypeGridOrange;
     public TextureRegion pixelRegion;
 
     public enum Transition {
@@ -94,7 +97,16 @@ public class Assets implements Disposable {
         mgr = new AssetManager();
         {
 //            mgr.load("sprites/sprites.atlas", TextureAtlas.class);
+
             mgr.load("libgdx.png", Texture.class);
+
+            var param = new TextureLoader.TextureParameter();
+            param.minFilter = Texture.TextureFilter.MipMapLinearLinear;
+            param.magFilter = Texture.TextureFilter.MipMapLinearLinear;
+            param.wrapU = Texture.TextureWrap.Repeat;
+            param.wrapV = Texture.TextureWrap.Repeat;
+            param.genMipMaps = true;
+            mgr.load("prototype-grid-orange.png", Texture.class, param);
         }
 
         if (load == Load.SYNC) {
@@ -108,6 +120,9 @@ public class Assets implements Disposable {
         if (initialized) return 1;
 
 //        atlas = mgr.get("sprites/sprites.atlas");
+
+        libgdxTexture = mgr.get("libgdx.png", Texture.class);
+        prototypeGridOrange = mgr.get("prototype-grid-orange.png", Texture.class);
 
         String defaultVertexPath = "shaders/default.vert";
         {
@@ -156,10 +171,9 @@ public class Assets implements Disposable {
         if (!shaderProgram.isCompiled()) {
             Gdx.app.error("LoadShader", "compilation failed:\n" + log);
             throw new GdxRuntimeException("LoadShader: compilation failed:\n" + log);
+        } else if (Config.Debug.shaders){
+            Gdx.app.debug("LoadShader", "ShaderProgram compilation log: " + log);
         }
-//        else if (Config.shader_debug_log){
-//            Gdx.app.debug("LoadShader", "ShaderProgram compilation log: " + log);
-//        }
 
         return shaderProgram;
     }

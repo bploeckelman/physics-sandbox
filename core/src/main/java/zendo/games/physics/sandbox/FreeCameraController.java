@@ -10,7 +10,7 @@ import com.badlogic.gdx.utils.IntIntMap;
  * @author Marcus Brummer
  * @version 24-11-2015
  */
-class FreeCameraController extends InputAdapter {
+public class FreeCameraController extends InputAdapter {
 
     private final float SPEED_0 = 10f;
     private final float SPEED_1 = 100f;

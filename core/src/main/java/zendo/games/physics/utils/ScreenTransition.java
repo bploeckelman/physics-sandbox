@@ -92,7 +92,7 @@ public class ScreenTransition implements Disposable {
         batch.end();
         batch.setShader(null);
 
-        if (Config.debug_general) {
+        if (Config.Debug.general) {
             batch.begin();
             {
                 batch.draw(textures.dest, 0, 100, 100, -100);

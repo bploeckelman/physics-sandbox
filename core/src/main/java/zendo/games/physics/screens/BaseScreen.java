@@ -114,7 +114,7 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
 
     @Override
     public boolean buttonDown (Controller controller, int buttonIndex) {
-        if (Config.debug_general) {
+        if (Config.Debug.general) {
             Gdx.app.log(TAG, "controller " + controller.getName() + " button " + buttonIndex + " down");
         }
         return false;
@@ -122,7 +122,7 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
 
     @Override
     public boolean buttonUp (Controller controller, int buttonIndex) {
-        if (Config.debug_general) {
+        if (Config.Debug.general) {
             Gdx.app.log(TAG, "controller " + controller.getName() + " button " + buttonIndex + " up");
         }
         return false;
@@ -131,7 +131,7 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
     @Override
     public boolean axisMoved (Controller controller, int axisIndex, float value) {
         var deadzone = 0.2f;
-        if (Config.debug_general && Math.abs(value) > deadzone) {
+        if (Config.Debug.general && Math.abs(value) > deadzone) {
             Gdx.app.log(TAG, "controller " + controller.getName() + " axis " + axisIndex + " moved " + value);
         }
         return false;
