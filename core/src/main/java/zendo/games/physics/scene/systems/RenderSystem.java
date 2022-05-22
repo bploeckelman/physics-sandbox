@@ -34,6 +34,10 @@ public class RenderSystem extends EntitySystem implements EntityListener {
         entities.removeValue(entity, true);
     }
 
+    public void render(ModelBatch batch) {
+        batch.render(components);
+    }
+
     public void render(ModelBatch batch, Environment environment) {
         batch.render(components, environment);
     }

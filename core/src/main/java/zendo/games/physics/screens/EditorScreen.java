@@ -5,6 +5,7 @@ import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.StringBuilder;
@@ -61,6 +62,16 @@ public class EditorScreen extends BaseScreen {
     public void render() {
         ScreenUtils.clear(Color.SKY, true);
 
+        // shadows ----------------------------------------
+        var shadowBatch = assets.shadowModelBatch;
+        scene.shadowLight.begin(Vector3.Zero, worldCamera.direction);
+        shadowBatch.begin(scene.shadowLight.getCamera());
+        {
+            renderSystem.render(shadowBatch);
+        }
+        shadowBatch.end();
+        scene.shadowLight.end();
+
         // world ------------------------------------------
         var modelBatch = assets.modelBatch;
         modelBatch.begin(worldCamera);
@@ -89,7 +100,7 @@ public class EditorScreen extends BaseScreen {
                 str.append(" - ").append(component.name()).append("\n");
             }
             text = str.toString();
-            font = assets.font;
+            font = assets.smallFont;
             layout.setText(font, text, Color.WHITE, windowCamera.viewportWidth, Align.left, false);
             font.draw(batch, layout, 0, windowCamera.viewportHeight);
         }

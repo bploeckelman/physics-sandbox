@@ -10,7 +10,7 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
-import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.ArrowShapeBuilder;
@@ -29,6 +29,8 @@ public class Scene implements Disposable {
 
     private final Model model;
 
+    public DirectionalShadowLight shadowLight;
+
     private enum Nodes { axes, floor, box, sphere }
 
     public Scene(Engine engine) {
@@ -38,9 +40,15 @@ public class Scene implements Disposable {
         this.environment.set(ColorAttribute.createAmbientLight(0.3f, 0.3f, 0.3f, 1f));
 
         var sunlight = new Color(244f / 255f, 233f / 255f, 155f / 255f, 1f);
-        var light = new DirectionalLight();
-        light.set(sunlight, -1f, -0.8f, -0.2f);
-        this.environment.add(light);
+        var lightDir = new Vector3(-1f, -0.8f, -0.2f);
+        this.shadowLight = new DirectionalShadowLight(
+                4096, 4096,
+                100f, 100f,
+                0.1f, 1000f
+        );
+        shadowLight.set(sunlight, lightDir);
+        environment.add(shadowLight);
+        environment.shadowMap = shadowLight;
 
         this.model = buildSceneModel();
 
@@ -142,7 +150,6 @@ public class Scene implements Disposable {
             // floor
             // --------------------------------------------
             var floorSize = 100f;
-            var texture = Game.instance.assets.prototypeGridOrange;
 
             id = Nodes.floor.name();
             builder.node().id = id;
@@ -151,7 +158,7 @@ public class Scene implements Disposable {
                               ColorAttribute.createDiffuse(Color.WHITE)
                             , ColorAttribute.createSpecular(Color.WHITE)
                             , FloatAttribute.createShininess(16f)
-                            , TextureAttribute.createDiffuse(texture)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.prototypeGridOrange)
                     )
             );
             partBuilder.rect(
@@ -174,7 +181,6 @@ public class Scene implements Disposable {
             partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
                     new Material(ColorAttribute.createDiffuse(Color.WHITE))
             );
-            partBuilder.setColor(Color.WHITE); SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 10, 10);
             partBuilder.setColor(Color.RED);   ArrowShapeBuilder.build(partBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
             partBuilder.setColor(Color.GREEN); ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
             partBuilder.setColor(Color.BLUE);  ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
@@ -182,14 +188,12 @@ public class Scene implements Disposable {
             // --------------------------------------------
             // box
             // --------------------------------------------
-            texture = Game.instance.assets.crateTexture;
-
             id = Nodes.box.name();
             builder.node().id = id;
             partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
                     new Material(
                               ColorAttribute.createDiffuse(Color.WHITE)
-                            , TextureAttribute.createDiffuse(texture)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.crateTexture)
                     )
             );
             BoxShapeBuilder.build(partBuilder, 0.5f, 0.5f, 0.5f, 1f, 1f, 1f);
@@ -197,8 +201,6 @@ public class Scene implements Disposable {
             // --------------------------------------------
             // sphere
             // --------------------------------------------
-            texture = Game.instance.assets.metalTexture;
-
             id = Nodes.sphere.name();
             builder.node().id = id;
             partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
@@ -206,10 +208,10 @@ public class Scene implements Disposable {
                               ColorAttribute.createDiffuse(Color.WHITE)
                             , ColorAttribute.createSpecular(Color.WHITE)
                             , FloatAttribute.createShininess(32f)
-                            , TextureAttribute.createDiffuse(texture)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.metalTexture)
                     )
             );
-            SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 12, 12);
+            SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 16, 16);
         }
         return builder.end();
     }

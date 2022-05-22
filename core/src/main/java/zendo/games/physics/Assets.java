@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
@@ -93,7 +94,7 @@ public class Assets implements Disposable {
         batch = new SpriteBatch();
         modelBatch = new ModelBatch();
         debugModelBatch = new ModelBatch();
-        shadowModelBatch = new ModelBatch();
+        shadowModelBatch = new ModelBatch(new DepthShaderProvider());
         shapes = new ShapeDrawer(batch, pixelRegion);
         layout = new GlyphLayout();
 
