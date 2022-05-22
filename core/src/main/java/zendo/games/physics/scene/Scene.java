@@ -132,14 +132,13 @@ public class Scene implements Disposable {
             // --------------------------------------------
             // box
             // --------------------------------------------
-            texture = Game.instance.assets.libgdxTexture;
+            texture = Game.instance.assets.crateTexture;
 
             id = Nodes.box.name();
             builder.node().id = id;
             partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
                     new Material(
-                            ColorAttribute.createDiffuse(Color.WHITE)
-                            , ColorAttribute.createSpecular(Color.WHITE)
+                              ColorAttribute.createDiffuse(Color.WHITE)
                             , TextureAttribute.createDiffuse(texture)
                     )
             );
