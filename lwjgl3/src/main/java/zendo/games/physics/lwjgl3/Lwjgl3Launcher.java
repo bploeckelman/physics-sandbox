@@ -3,7 +3,7 @@ package zendo.games.physics.lwjgl3;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import zendo.games.physics.Game;
-import zendo.games.physics.Main;
+import zendo.games.physics.sandbox.Main;
 
 /** Launches the desktop (LWJGL3) application. */
 public class Lwjgl3Launcher {

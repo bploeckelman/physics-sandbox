@@ -27,19 +27,19 @@ public class Game extends ApplicationAdapter {
     public TweenManager tween;
 
     private OrthographicCamera camera;
+    private ScreenTransition transition;
+    private Screens screens;
 
-    public static class Screens implements Disposable {
+    static class Screens implements Disposable {
         public BaseScreen current;
         public BaseScreen next;
+
         @Override
         public void dispose() {
             if (current != null) current.dispose();
             if (next != null) next.dispose();
         }
     }
-    private Screens screens;
-
-    private ScreenTransition transition;
 
     @Override
     public void create() {

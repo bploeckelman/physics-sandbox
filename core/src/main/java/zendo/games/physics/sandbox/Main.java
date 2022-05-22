@@ -1,4 +1,4 @@
-package zendo.games.physics;
+package zendo.games.physics.sandbox;
 
 import com.badlogic.gdx.*;
 import com.badlogic.gdx.graphics.*;
@@ -38,7 +38,7 @@ import com.badlogic.gdx.utils.*;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;
-import static zendo.games.physics.GameObject.Type.*;
+import static zendo.games.physics.sandbox.GameObject.Type.*;
 
 public class Main extends ApplicationAdapter implements InputProcessor {
 

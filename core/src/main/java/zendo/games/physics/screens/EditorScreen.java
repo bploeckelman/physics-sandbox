@@ -26,6 +26,7 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public void render() {
+        // user interface
         var batch = assets.batch;
         batch.setProjectionMatrix(windowCamera.combined);
         batch.begin();
@@ -40,14 +41,10 @@ public class EditorScreen extends BaseScreen {
     }
 
     @Override
-    public void dispose() {
-
-    }
-
-    @Override
     public boolean keyUp(int keycode) {
         if (keycode == Input.Keys.ESCAPE) {
             Gdx.app.exit();
+            return true;
         }
         return super.keyUp(keycode);
     }

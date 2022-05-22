@@ -1,4 +1,4 @@
-package zendo.games.physics;
+package zendo.games.physics.sandbox;
 
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.Attributes;

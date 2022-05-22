@@ -54,6 +54,9 @@ public abstract class BaseScreen implements InputProcessor, ControllerListener, 
         windowCamera.update();
     }
 
+    @Override
+    public void dispose() {}
+
     public void onTransitionComplete() {}
     public void updateEvenIfPaused(float delta) {}
     public void renderIntoFrameBuffers() {}

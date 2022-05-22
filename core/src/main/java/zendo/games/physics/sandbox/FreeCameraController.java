@@ -1,4 +1,4 @@
-package zendo.games.physics;
+package zendo.games.physics.sandbox;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
