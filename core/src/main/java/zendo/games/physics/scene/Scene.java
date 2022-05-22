@@ -55,10 +55,15 @@ public class Scene implements Disposable {
         // create test entities for each node
         for (var node : Nodes.values()) {
             var name = node.name();
-            engine.addEntity(engine.createEntity()
+            var entity = engine.createEntity()
                     .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(model, name))
-            );
+                    .add(new ModelInstanceComponent(model, name));
+            engine.addEntity(entity);
+
+            if (node == Nodes.sphere) {
+                entity.getComponent(ModelInstanceComponent.class)
+                        .transform.setTranslation(0.5f, 1.5f, 0.5f);
+            }
         }
 
         for (int i = 1; i < 10; i++) {
@@ -100,7 +105,7 @@ public class Scene implements Disposable {
             var tileSize = 10f;
             entity.getComponent(ModelInstanceComponent.class)
                     .transform.setToTranslationAndScaling(
-                            tileSize, 0, 0,
+                            -tileSize, 0, 0,
                             tileSize, tileSize, tileSize
                     );
         }
@@ -181,6 +186,7 @@ public class Scene implements Disposable {
             partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
                     new Material(ColorAttribute.createDiffuse(Color.WHITE))
             );
+            partBuilder.setColor(Color.WHITE); SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 10, 10);
             partBuilder.setColor(Color.RED);   ArrowShapeBuilder.build(partBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
             partBuilder.setColor(Color.GREEN); ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
             partBuilder.setColor(Color.BLUE);  ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
