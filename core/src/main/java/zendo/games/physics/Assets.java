@@ -10,12 +10,16 @@ import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.graphics.g3d.Shader;
+import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
 import space.earlygrey.shapedrawer.ShapeDrawer;
+import zendo.games.physics.shaders.WireframeShader;
 
 public class Assets implements Disposable {
 
@@ -25,7 +29,7 @@ public class Assets implements Disposable {
 
     public SpriteBatch batch;
     public ModelBatch modelBatch;
-    public ModelBatch debugModelBatch;
+    public ModelBatch wireframeModelBatch;
     public ModelBatch shadowModelBatch;
     public ShapeDrawer shapes;
     public GlyphLayout layout;
@@ -93,8 +97,14 @@ public class Assets implements Disposable {
 
         batch = new SpriteBatch();
         modelBatch = new ModelBatch();
-        debugModelBatch = new ModelBatch();
         shadowModelBatch = new ModelBatch(new DepthShaderProvider());
+        wireframeModelBatch = new ModelBatch(new DefaultShaderProvider() {
+            @Override
+            protected Shader createShader(Renderable renderable) {
+                return new WireframeShader(renderable, config);
+            }
+        });
+
         shapes = new ShapeDrawer(batch, pixelRegion);
         layout = new GlyphLayout();
 
@@ -163,8 +173,8 @@ public class Assets implements Disposable {
         mgr.dispose();
         batch.dispose();
         modelBatch.dispose();
-        debugModelBatch.dispose();
         shadowModelBatch.dispose();
+        wireframeModelBatch.dispose();
         pixel.dispose();
         font.dispose();
         smallFont.dispose();

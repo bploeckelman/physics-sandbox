@@ -34,10 +34,10 @@ public class TopDownCameraController extends CameraController {
     // TODO - scale mouse pan speed based on zoom level
     private float unitsDraggedPerPixel = 5f;
 
-    private final float ZOOM_INITIAL = 0.1f;
-    private final float ZOOM_MIN = 0.02f;
+    private final float ZOOM_INITIAL = 0.075f;
+    private final float ZOOM_MIN = 0.01f;
     private final float ZOOM_MAX = 1f;
-    private final float ZOOM_SCALE_MIN = 0.1f;
+    private final float ZOOM_SCALE_MIN = 0.01f;
     private final float ZOOM_SCALE_MAX = 2f;
     private float zoomConstantScale = ZOOM_SCALE_MIN;
 
@@ -129,7 +129,7 @@ public class TopDownCameraController extends CameraController {
         // scale zoom amount based on distance to the ground plane
         if (camera instanceof OrthographicCamera ortho) {
             var distance = (ortho.zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
-            zoomConstantScale = Interpolation.exp10.apply(ZOOM_SCALE_MIN, ZOOM_SCALE_MAX, distance);
+            zoomConstantScale = Interpolation.exp5.apply(ZOOM_SCALE_MIN, ZOOM_SCALE_MAX, distance);
             // Gdx.app.log(TAG, "zoom scale: " + zoomConstantScale);
 
             if (keys.containsKey(UP)) {

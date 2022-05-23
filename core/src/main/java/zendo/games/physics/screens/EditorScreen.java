@@ -93,10 +93,10 @@ public class EditorScreen extends BaseScreen {
     public void render() {
         ScreenUtils.clear(Color.SKY, true);
 
-        if (Config.Debug.physics) {
-            physicsSystem.renderDebug(worldCamera);
+        if (Config.Debug.wireframe) {
+            renderSystem.render(worldCamera, assets.wireframeModelBatch, null);
         } else {
-            renderSystem.renderShadows(worldCamera, assets.shadowModelBatch, scene);
+            renderSystem.renderShadows(worldCamera, assets.shadowModelBatch, scene.shadowLight);
             renderSystem.render(worldCamera, assets.modelBatch, scene.env());
         }
 
@@ -128,6 +128,10 @@ public class EditorScreen extends BaseScreen {
             }
             case Keys.TAB -> {
                 toggleCamera();
+                return true;
+            }
+            case Keys.NUM_1 -> {
+                Config.Debug.wireframe = !Config.Debug.wireframe;
                 return true;
             }
             // TESTING -------------------------------
@@ -181,7 +185,8 @@ public class EditorScreen extends BaseScreen {
         switch (button) {
             case Buttons.LEFT -> {
                 if (editInfo.isHolding()) {
-                    // leave the held entity in the world in its current configuration
+                    // give it a new name and then leave the held entity in the world in its current configuration
+                    editInfo.heldEntity.add(new NameComponent("tile " + componentCount++));
                     editInfo.releaseEntity();
                 } else {
                     // create a new entity in the clicked tile

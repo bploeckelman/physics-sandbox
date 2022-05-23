@@ -7,9 +7,9 @@ import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ObjectSet;
-import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 
@@ -39,12 +39,12 @@ public class RenderSystem extends EntitySystem implements EntityListener {
         batch.end();
     }
 
-    public void renderShadows(Camera camera, ModelBatch shadowModelBatch, Scene scene) {
-        scene.shadowLight.begin(Vector3.Zero, camera.direction);
-        shadowModelBatch.begin(scene.shadowLight.getCamera());
+    public void renderShadows(Camera camera, ModelBatch shadowModelBatch, DirectionalShadowLight shadowLight) {
+        shadowLight.begin(Vector3.Zero, camera.direction);
+        shadowModelBatch.begin(shadowLight.getCamera());
         shadowModelBatch.render(components);
         shadowModelBatch.end();
-        scene.shadowLight.end();
+        shadowLight.end();
     }
 
 }
