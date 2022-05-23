@@ -5,7 +5,6 @@ import com.badlogic.gdx.physics.bullet.collision.*;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
-import lombok.RequiredArgsConstructor;
 
 import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type.*;
 
@@ -17,7 +16,7 @@ public class CollisionShapeProvider implements Provider<btCollisionShape> {
     private final Array<btCollisionShape> customShapes = new Array<>();
 
     public CollisionShapeProvider() {
-        shapes.put(rect,     new btBox2dShape(new Vector3(50f, 0f, 50f)));
+        shapes.put(rect,     new btBox2dShape(new Vector3(10f, 0f, 10f)));
         shapes.put(box,      new btBoxShape(new Vector3(0.5f, 0.5f, 0.5f)));
         shapes.put(sphere,   new btSphereShape(0.5f));
         shapes.put(cone,     new btConeShape(0.5f, 1f));
@@ -43,34 +42,40 @@ public class CollisionShapeProvider implements Provider<btCollisionShape> {
         throw new GdxRuntimeException("No collision shape for specified key: " + key);
     }
 
-    public btCollisionShape create(Builder builder) {
-        var shape = builder.build();
+    public btCollisionShape create(CollisionShapeBuilder collisionShapeBuilder) {
+        var shape = collisionShapeBuilder.build();
         customShapes.add(shape);
         return shape;
     }
 
-    @RequiredArgsConstructor
-    public static class Builder {
+    public static class CollisionShapeBuilder {
         private final Type type;
-
-        private final Vector3 halfExtents = new Vector3();
+        private Vector3 halfExtents = new Vector3();
         private float radius = 0.5f;
         private float height = 1f;
 
-        Builder halfExtents(float x, float y, float z) {
+        private CollisionShapeBuilder(Type type) {
+            this.type = type;
+        }
+
+        public static CollisionShapeBuilder create(Type type) {
+            return new CollisionShapeBuilder(type);
+        }
+
+        public CollisionShapeBuilder halfExtents(float x, float y, float z) {
             this.halfExtents.set(x, y, z);
             return this;
         }
-        Builder radius(float radius) {
+        public CollisionShapeBuilder radius(float radius) {
             this.radius = radius;
             return this;
         }
-        Builder height(float height) {
+        public CollisionShapeBuilder height(float height) {
             this.height = height;
             return this;
         }
 
-        btCollisionShape build() {
+        public btCollisionShape build() {
             return switch (type) {
                 case rect     -> new btBox2dShape(halfExtents);
                 case box      -> new btBoxShape(halfExtents);

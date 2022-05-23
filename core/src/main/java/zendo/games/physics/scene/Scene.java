@@ -23,8 +23,10 @@ import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
 import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.PhysicsComponent;
-import zendo.games.physics.scene.providers.CollisionShapeProvider;
 import zendo.games.physics.scene.systems.ProviderSystem;
+
+import static zendo.games.physics.scene.providers.CollisionShapeProvider.CollisionShapeBuilder;
+import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
 
 public class Scene implements Disposable {
 
@@ -161,8 +163,8 @@ public class Scene implements Disposable {
         Entity entity;
 
         // floor ------------------------------------------
-
-        var collisionShape = collisionShapeProvider.get(CollisionShapeProvider.Type.rect);
+        var collisionShape = collisionShapeProvider.create(
+                CollisionShapeBuilder.create(Type.rect).halfExtents(50f, 0f, 50f));
         var modelInstanceComponent = new ModelInstanceComponent(model, Nodes.floor.name());
         var transform = modelInstanceComponent.transform;
 
@@ -276,7 +278,7 @@ public class Scene implements Disposable {
     private int numCrates = 1;
     public void spawnCrate() {
         var provider = engine.getSystem(ProviderSystem.class).collisionShapeProvider;
-        var collisionShape = provider.get(CollisionShapeProvider.Type.box);
+        var collisionShape = provider.get(Type.box);
         var modelInstanceComponent = new ModelInstanceComponent(model, Nodes.box.name());
         var transform = modelInstanceComponent.transform;
 
