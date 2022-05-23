@@ -35,6 +35,7 @@ import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyRigidBodyCollisionConf
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyWorldInfo;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftRigidDynamicsWorld;
 import com.badlogic.gdx.utils.*;
+import zendo.games.physics.shaders.WireframeShader;
 
 import static com.badlogic.gdx.Input.Keys;
 import static com.badlogic.gdx.graphics.VertexAttributes.Usage;

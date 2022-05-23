@@ -4,42 +4,47 @@ import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
+import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
-import com.badlogic.gdx.utils.Array;
-import zendo.games.physics.scene.Components;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.ObjectSet;
+import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
+import zendo.games.physics.scene.components.utils.ComponentMappers;
 
 public class RenderSystem extends EntitySystem implements EntityListener {
 
-    private final Array<Entity> entities = new Array<>();
-    private final Array<ModelInstanceComponent> components = new Array<>();
-    private final ComponentMapper<ModelInstanceComponent> mapper = Components.Mappers.modelInstanceComponents;
+    private final ObjectSet<Entity> entities = new ObjectSet<>();
+    private final ObjectSet<ModelInstanceComponent> components = new ObjectSet<>();
+    private final ComponentMapper<ModelInstanceComponent> mapper = ComponentMappers.modelInstance;
 
     @Override
     public void entityAdded(Entity entity) {
         var component = mapper.get(entity);
-        var hasComponent = component != null;
-        var notAlreadyTracked = !entities.contains(entity, true);
-        if (hasComponent && notAlreadyTracked) {
-            entities.add(entity);
-            components.add(component);
-        }
+        components.add(component);
+        entities.add(entity);
     }
 
     @Override
     public void entityRemoved(Entity entity) {
         var component = mapper.get(entity);
-        components.removeValue(component, true);
-        entities.removeValue(entity, true);
+        components.remove(component);
+        entities.remove(entity);
     }
 
-    public void render(ModelBatch batch) {
-        batch.render(components);
-    }
-
-    public void render(ModelBatch batch, Environment environment) {
+    public void render(Camera camera, ModelBatch batch, Environment environment) {
+        batch.begin(camera);
         batch.render(components, environment);
+        batch.end();
+    }
+
+    public void renderShadows(Scene scene, Camera camera, ModelBatch shadowModelBatch) {
+        scene.shadowLight.begin(Vector3.Zero, camera.direction);
+        shadowModelBatch.begin(scene.shadowLight.getCamera());
+        shadowModelBatch.render(components);
+        shadowModelBatch.end();
+        scene.shadowLight.end();
     }
 
 }

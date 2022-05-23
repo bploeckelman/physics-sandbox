@@ -8,10 +8,10 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.StringBuilder;
+import zendo.games.physics.Config;
 import zendo.games.physics.Game;
 import zendo.games.physics.controllers.CameraController;
 import zendo.games.physics.controllers.TopDownCameraController;
@@ -19,18 +19,22 @@ import zendo.games.physics.sandbox.FreeCameraController;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
 import zendo.games.physics.scene.components.NameComponent;
+import zendo.games.physics.scene.components.utils.ComponentFamilies;
+import zendo.games.physics.scene.components.utils.ComponentMappers;
+import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
-import static zendo.games.physics.scene.Components.Families;
 
 public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
 
     private final Scene scene;
+
     private final RenderSystem renderSystem;
+    private final PhysicsSystem physicsSystem;
 
     private CameraController cameraController;
     private final OrthographicCamera orthoCamera;
@@ -52,8 +56,12 @@ public class EditorScreen extends BaseScreen {
         this.worldCamera = perspectiveCamera;
 
         this.renderSystem = new RenderSystem();
+        engine.addEntityListener(ComponentFamilies.modelInstances, renderSystem);
         engine.addSystem(renderSystem);
-        engine.addEntityListener(Families.modelInstanceComponents, renderSystem);
+
+        this.physicsSystem = new PhysicsSystem();
+        engine.addEntityListener(ComponentFamilies.physics, physicsSystem);
+        engine.addSystem(physicsSystem);
 
         this.scene = new Scene(engine);
 
@@ -79,23 +87,12 @@ public class EditorScreen extends BaseScreen {
     public void render() {
         ScreenUtils.clear(Color.SKY, true);
 
-        // shadows ----------------------------------------
-        var shadowBatch = assets.shadowModelBatch;
-        scene.shadowLight.begin(Vector3.Zero, worldCamera.direction);
-        shadowBatch.begin(scene.shadowLight.getCamera());
-        {
-            renderSystem.render(shadowBatch);
+        if (Config.Debug.physics) {
+            physicsSystem.renderDebug(worldCamera);
+        } else {
+            renderSystem.renderShadows(scene, worldCamera, assets.shadowModelBatch);
+            renderSystem.render(worldCamera, assets.modelBatch, scene.env());
         }
-        shadowBatch.end();
-        scene.shadowLight.end();
-
-        // world ------------------------------------------
-        var modelBatch = assets.modelBatch;
-        modelBatch.begin(worldCamera);
-        {
-            renderSystem.render(modelBatch, scene.env());
-        }
-        modelBatch.end();
 
         // user interface ---------------------------------
         var batch = assets.batch;
@@ -111,7 +108,7 @@ public class EditorScreen extends BaseScreen {
 
             var str = new StringBuilder();
             str.append("Entities:\n");
-            var namedEntities = engine.getEntitiesFor(Families.nameComponents);
+            var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
             for (var entity : namedEntities) {
                 var component = entity.getComponent(NameComponent.class);
                 str.append(" - ").append(component.name()).append("\n");
@@ -175,9 +172,9 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public boolean mouseMoved(int screenX, int screenY) {
-        if (worldCamera instanceof OrthographicCamera && editInfo.isHoldingObject && editInfo.heldEntity != null) {
-            var pickRay = worldCamera.getPickRay(screenX, screenY);
-            pickRay.getEndPoint(pointerPos, worldCamera.position.y);
+        if (worldCamera instanceof OrthographicCamera && editInfo.isHolding()) {
+            worldCamera.getPickRay(screenX, screenY)
+                       .getEndPoint(pointerPos, worldCamera.position.y);
 
             // keep object positioned within a tile
             var tileSize = 10f;
@@ -185,9 +182,10 @@ public class EditorScreen extends BaseScreen {
             var z = MathUtils.floor(pointerPos.z / tileSize) * tileSize;
 
             var offset = tileSize / 2f;
-            var modelInstance = editInfo.heldEntity.getComponent(ModelInstanceComponent.class);
-            modelInstance.transform.setToTranslation(offset + x, 0, offset + z);
-
+            var instance = ComponentMappers.modelInstance.get(editInfo.heldEntity);
+            if (instance != null) {
+                instance.transform.setToTranslation(offset + x, 0, offset + z);
+            }
             return true;
         }
         return super.mouseMoved(screenX, screenY);
@@ -201,12 +199,13 @@ public class EditorScreen extends BaseScreen {
 
         switch (button) {
             case Buttons.LEFT -> {
-                if (!editInfo.isHoldingObject) {
+                if (editInfo.isHolding()) {
+                    // leave the held entity in the world in its current configuration
+                    editInfo.releaseEntity();
+                } else {
                     // create a new entity in the clicked tile
-                    editInfo.isHoldingObject = true;
-
-                    var pickRay = worldCamera.getPickRay(screenX, screenY);
-                    pickRay.getEndPoint(pointerPos, worldCamera.position.y);
+                    worldCamera.getPickRay(screenX, screenY)
+                               .getEndPoint(pointerPos, worldCamera.position.y);
 
                     var tileSize = 10f;
                     var x = MathUtils.floor(pointerPos.x / tileSize) * tileSize;
@@ -214,27 +213,23 @@ public class EditorScreen extends BaseScreen {
 
                     var offset = tileSize / 2f;
                     var model = Game.instance.assets.mgr.get("start.g3db", Model.class);
-                    var modelInstance = new ModelInstanceComponent(model);
-                    modelInstance.transform.setToTranslation(offset + x, 0, offset + z);
+                    var instance = new ModelInstanceComponent(model);
+                    instance.transform.setToTranslation(offset + x, 0, offset + z);
 
                     var entity = engine.createEntity()
                             .add(new NameComponent("Held Tile"))
-                            .add(modelInstance);
+                            .add(instance);
                     engine.addEntity(entity);
 
                     editInfo.heldEntity = entity;
-                    return true;
-                } else {
-                    // already holding, place it in the scene
-                    // ie. just disconnect it from the EditInfo
-                    editInfo.isHoldingObject = false;
-                    editInfo.heldEntity = null;
                 }
+                return true;
             }
             case Buttons.RIGHT -> {
-                editInfo.isHoldingObject = false;
-                if (editInfo.heldEntity != null) {
+                if (editInfo.isHolding()) {
+                    // delete the entity from the world before releasing it
                     engine.removeEntity(editInfo.heldEntity);
+                    editInfo.releaseEntity();
                 }
                 return true;
             }
@@ -244,8 +239,13 @@ public class EditorScreen extends BaseScreen {
     }
 
     static class EditInfo {
-        public boolean isHoldingObject = false;
         public Entity heldEntity = null;
+        public boolean isHolding() {
+            return heldEntity != null;
+        }
+        public void releaseEntity() {
+            heldEntity = null;
+        }
     }
     private final EditInfo editInfo = new EditInfo();
 
