@@ -1,6 +1,7 @@
 package zendo.games.physics.scene;
 
 import com.badlogic.ashley.core.Engine;
+import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.VertexAttributes;
@@ -56,6 +57,10 @@ public class Scene implements Disposable {
 
     public Environment env() {
         return environment;
+    }
+
+    public Model model() {
+        return model;
     }
 
     public void update(float delta) {
@@ -149,79 +154,91 @@ public class Scene implements Disposable {
     }
 
     private void buildTestEntities() {
-        for (var node : Nodes.values()) {
-            var name = node.name();
-            var entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(model, name));
-            engine.addEntity(entity);
+        Entity entity;
 
-            if (node == Nodes.sphere) {
-                entity.getComponent(ModelInstanceComponent.class)
-                        .transform.setTranslation(0.5f, 1.5f, 0.5f);
-            }
-        }
+        entity = engine.createEntity()
+                .add(new NameComponent("floor"))
+                .add(new ModelInstanceComponent(model, "floor"));
+        engine.addEntity(entity);
 
-        for (int i = 1; i < 10; i++) {
-            var id = Nodes.box.name();
-            var name = id + " " + i;
-            var entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(model, id));
-            engine.addEntity(entity);
+        entity = engine.createEntity()
+                .add(new NameComponent("axes"))
+                .add(new ModelInstanceComponent(model, "axes"));
+        engine.addEntity(entity);
 
-            entity.getComponent(ModelInstanceComponent.class)
-                    .transform.setTranslation(i, 0, i);
-        }
-
-        {
-            var name = "model";
-            var objectModel = Game.instance.assets.mgr.get("start.g3db", Model.class);
-            var entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(objectModel));
-            engine.addEntity(entity);
-
-            var tileSize = 10f;
-            entity.getComponent(ModelInstanceComponent.class)
-                    .transform.setTranslation(
-                            tileSize / 2f,
-                            0,
-                            tileSize / 2f + tileSize
-                    );
-        }
-
-        {
-            var name = "unit box";
-            var entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(model, Nodes.box.name()));
-            engine.addEntity(entity);
-
-            var tileSize = 10f;
-            entity.getComponent(ModelInstanceComponent.class)
-                    .transform.setToTranslationAndScaling(
-                            -tileSize, 0, 0,
-                            tileSize, tileSize, tileSize
-                    );
-        }
-
-        {
-            var name = "unit sphere";
-            var entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new ModelInstanceComponent(model, Nodes.sphere.name()));
-            engine.addEntity(entity);
-
-            var tileSize = 10f;
-            entity.getComponent(ModelInstanceComponent.class)
-                    .transform.setToTranslationAndScaling(
-                            tileSize / 2f + tileSize,
-                            tileSize / 2f,
-                            tileSize / 2f + tileSize,
-                            tileSize, tileSize, tileSize
-                    );
-        }
+//        for (var node : Nodes.values()) {
+//            var name = node.name();
+//            var entity = engine.createEntity()
+//                    .add(new NameComponent(name))
+//                    .add(new ModelInstanceComponent(model, name));
+//            engine.addEntity(entity);
+//
+//            if (node == Nodes.sphere) {
+//                entity.getComponent(ModelInstanceComponent.class)
+//                        .transform.setTranslation(0.5f, 1.5f, 0.5f);
+//            }
+//        }
+//
+//        for (int i = 1; i < 10; i++) {
+//            var id = Nodes.box.name();
+//            var name = id + " " + i;
+//            var entity = engine.createEntity()
+//                    .add(new NameComponent(name))
+//                    .add(new ModelInstanceComponent(model, id));
+//            engine.addEntity(entity);
+//
+//            entity.getComponent(ModelInstanceComponent.class)
+//                    .transform.setTranslation(i, 0, i);
+//        }
+//
+//        {
+//            var name = "model";
+//            var objectModel = Game.instance.assets.mgr.get("start.g3db", Model.class);
+//            var entity = engine.createEntity()
+//                    .add(new NameComponent(name))
+//                    .add(new ModelInstanceComponent(objectModel));
+//            engine.addEntity(entity);
+//
+//            var tileSize = 10f;
+//            entity.getComponent(ModelInstanceComponent.class)
+//                    .transform.setTranslation(
+//                            tileSize / 2f,
+//                            0,
+//                            tileSize / 2f + tileSize
+//                    );
+//        }
+//
+//        {
+//            var name = "unit box";
+//            var entity = engine.createEntity()
+//                    .add(new NameComponent(name))
+//                    .add(new ModelInstanceComponent(model, Nodes.box.name()));
+//            engine.addEntity(entity);
+//
+//            var tileSize = 10f;
+//            entity.getComponent(ModelInstanceComponent.class)
+//                    .transform.setToTranslationAndScaling(
+//                            -tileSize, 0, 0,
+//                            tileSize, tileSize, tileSize
+//                    );
+//        }
+//
+//        {
+//            var name = "unit sphere";
+//            var entity = engine.createEntity()
+//                    .add(new NameComponent(name))
+//                    .add(new ModelInstanceComponent(model, Nodes.sphere.name()));
+//            engine.addEntity(entity);
+//
+//            var tileSize = 10f;
+//            entity.getComponent(ModelInstanceComponent.class)
+//                    .transform.setToTranslationAndScaling(
+//                            tileSize / 2f + tileSize,
+//                            tileSize / 2f,
+//                            tileSize / 2f + tileSize,
+//                            tileSize, tileSize, tileSize
+//                    );
+//        }
     }
 
 }

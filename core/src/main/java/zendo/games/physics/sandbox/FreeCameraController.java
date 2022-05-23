@@ -1,5 +1,6 @@
 package zendo.games.physics.sandbox;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
@@ -47,7 +48,8 @@ public class FreeCameraController extends CameraController {
         camera.position.set(-15f, 10f, -15f);
         camera.up.set(Vector3.Y);
         camera.lookAt(0f, 0f, 0f);
-        camera.update();
+        camera.update(true);
+        Gdx.input.setCursorCatched(true);
     }
 
     @Override

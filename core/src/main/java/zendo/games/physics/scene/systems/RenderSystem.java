@@ -14,7 +14,7 @@ public class RenderSystem extends EntitySystem implements EntityListener {
 
     private final Array<Entity> entities = new Array<>();
     private final Array<ModelInstanceComponent> components = new Array<>();
-    private final ComponentMapper<ModelInstanceComponent> mapper = Components.Mappers.modelInstance;
+    private final ComponentMapper<ModelInstanceComponent> mapper = Components.Mappers.modelInstanceComponents;
 
     @Override
     public void entityAdded(Entity entity) {

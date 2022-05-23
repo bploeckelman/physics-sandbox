@@ -1,11 +1,19 @@
 package zendo.games.physics.controllers;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.IntIntMap;
+import zendo.games.physics.utils.Calc;
+import zendo.games.physics.utils.Time;
 
 public class TopDownCameraController extends CameraController {
+
+    private static final String TAG = TopDownCameraController.class.getSimpleName();
 
     private final float SPEED_0 = 10f;
     private final float SPEED_1 = 100f;
@@ -22,12 +30,18 @@ public class TopDownCameraController extends CameraController {
     private final int DOWN = Input.Keys.E;
 
     private float velocity = SPEED_0;
-    private float degreesPerPixel = 0.1f;
-    private int dragX, dragY;
-    public float rotateSpeed = 0.2f;
+
+    // TODO - scale mouse pan speed based on zoom level
+    private float unitsDraggedPerPixel = 5f;
+
+    private final float ZOOM_INITIAL = 0.1f;
+    private final float ZOOM_MIN = 0.02f;
+    private final float ZOOM_MAX = 1f;
+    private final float ZOOM_SCALE_MIN = 0.1f;
+    private final float ZOOM_SCALE_MAX = 2f;
+    private float zoomConstantScale = ZOOM_SCALE_MIN;
 
     private final Vector3 tmp = new Vector3();
-    private final float INITIAL_HEIGHT = 20f;
 
     public TopDownCameraController(Camera camera) {
         super(camera);
@@ -35,10 +49,14 @@ public class TopDownCameraController extends CameraController {
     }
 
     public void resetCamera() {
-        camera.position.set(0, INITIAL_HEIGHT, 0);
+        camera.position.set(0, 1, 0);
         camera.up.set(Vector3.Z).scl(-1f);
         camera.direction.set(Vector3.Y).scl(-1f);
+        if (camera instanceof OrthographicCamera ortho) {
+            ortho.zoom = ZOOM_INITIAL;
+        }
         camera.update(true);
+        Gdx.input.setCursorCatched(false);
     }
 
     @Override
@@ -55,16 +73,16 @@ public class TopDownCameraController extends CameraController {
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
-//        if (Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
-//            var deltaX = -Gdx.input.getDeltaX() * degreesPerPixel;
-//            var deltaY = -Gdx.input.getDeltaY() * degreesPerPixel;
-//            if (camera != null) {
-//                camera.direction.rotate(camera.up, deltaX);
-//                tmp.set(camera.direction).crs(camera.up).nor();
-//                camera.direction.rotate(tmp, deltaY);
-//            }
-//        }
-        return false;
+        if (Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
+            var amountX = Gdx.input.getDeltaX() * Time.delta * unitsDraggedPerPixel;
+            var amountY = Gdx.input.getDeltaY() * Time.delta * unitsDraggedPerPixel;
+            if (amountX > 0) moveLeft(amountX);
+            if (amountX < 0) moveRight(amountX);
+            if (amountY > 0) moveForward(amountY);
+            if (amountY < 0) moveBack(amountY);
+            return true;
+        }
+        return super.touchDragged(screenX, screenY, pointer);
     }
 
     @Override
@@ -89,31 +107,41 @@ public class TopDownCameraController extends CameraController {
         return false;
     }
 
+    @Override
+    public boolean scrolled(float amountX, float amountY) {
+        if (amountY != 0 && camera instanceof OrthographicCamera ortho) {
+            var sign = Calc.sign(amountY);
+            var zoom = ortho.zoom + sign * Time.delta * velocity * zoomConstantScale;
+            ortho.zoom = MathUtils.clamp(zoom, ZOOM_MIN, ZOOM_MAX);
+            return true;
+        }
+        return super.scrolled(amountX, amountY);
+    }
+
+    @Override
     public void update(float deltaTime) {
-        if (keys.containsKey(FORWARD)) {
-            tmp.set(Vector3.Z).nor().scl(-deltaTime * velocity);
-            camera.position.add(tmp);
+        var moveAmount = deltaTime * velocity;
+        if (keys.containsKey(FORWARD))      moveForward(moveAmount);
+        if (keys.containsKey(BACKWARD))     moveBack(moveAmount);
+        if (keys.containsKey(STRAFE_LEFT))  moveLeft(moveAmount);
+        if (keys.containsKey(STRAFE_RIGHT)) moveRight(moveAmount);
+
+        // scale zoom amount based on distance to the ground plane
+        if (camera instanceof OrthographicCamera ortho) {
+            var distance = (ortho.zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
+            zoomConstantScale = Interpolation.exp10.apply(ZOOM_SCALE_MIN, ZOOM_SCALE_MAX, distance);
+            // Gdx.app.log(TAG, "zoom scale: " + zoomConstantScale);
+
+            if (keys.containsKey(UP)) {
+                var newZoom = ortho.zoom + deltaTime * velocity * zoomConstantScale;
+                ortho.zoom = Calc.clamp_f(newZoom, ZOOM_MIN, ZOOM_MAX);
+            }
+            if (keys.containsKey(DOWN)) {
+                var newZoom = ortho.zoom - deltaTime * velocity * zoomConstantScale;
+                ortho.zoom = Calc.clamp_f(newZoom, ZOOM_MIN, ZOOM_MAX);
+            }
         }
-        if (keys.containsKey(BACKWARD)) {
-            tmp.set(Vector3.Z).nor().scl(deltaTime * velocity);
-            camera.position.add(tmp);
-        }
-        if (keys.containsKey(STRAFE_LEFT)) {
-            tmp.set(Vector3.X).nor().scl(-deltaTime * velocity);
-            camera.position.add(tmp);
-        }
-        if (keys.containsKey(STRAFE_RIGHT)) {
-            tmp.set(Vector3.X).nor().scl(deltaTime * velocity);
-            camera.position.add(tmp);
-        }
-        if (keys.containsKey(UP)) {
-            tmp.set(Vector3.Y).nor().scl(deltaTime * velocity);
-            camera.position.add(tmp);
-        }
-        if (keys.containsKey(DOWN)) {
-            tmp.set(Vector3.Y).nor().scl(-deltaTime * velocity);
-            camera.position.add(tmp);
-        }
+
         camera.update(true);
     }
 
@@ -127,13 +155,36 @@ public class TopDownCameraController extends CameraController {
         this.velocity = velocity;
     }
 
-    /**
-     * Sets how many degrees to rotate per pixel the mouse moved.
-     *
-     * @param degreesPerPixel
-     */
-    public void setDegreesPerPixel(float degreesPerPixel) {
-        this.degreesPerPixel = degreesPerPixel;
+    private void moveLeft(float amount) {
+        // make amount sign independent
+        if (amount < 0) amount *= -1f;
+
+        tmp.set(Vector3.X).nor().scl(-amount);
+        camera.position.add(tmp);
+    }
+
+    private void moveRight(float amount) {
+        // make amount sign independent
+        if (amount < 0) amount *= -1f;
+
+        tmp.set(Vector3.X).nor().scl(amount);
+        camera.position.add(tmp);
+    }
+
+    private void moveForward(float amount) {
+        // make amount sign independent
+        if (amount < 0) amount *= -1f;
+
+        tmp.set(Vector3.Z).nor().scl(-amount);
+        camera.position.add(tmp);
+    }
+
+    private void moveBack(float amount) {
+        // make amount sign independent
+        if (amount < 0) amount *= -1f;
+
+        tmp.set(Vector3.Z).nor().scl(amount);
+        camera.position.add(tmp);
     }
 
 }
