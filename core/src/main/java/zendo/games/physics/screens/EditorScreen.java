@@ -8,9 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.StringBuilder;
 import zendo.games.physics.Config;
 import zendo.games.physics.Game;
 import zendo.games.physics.controllers.CameraController;
@@ -23,6 +21,7 @@ import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
+import zendo.games.physics.scene.systems.UserInterfaceSystem;
 
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
@@ -35,6 +34,7 @@ public class EditorScreen extends BaseScreen {
 
     private final RenderSystem renderSystem;
     private final PhysicsSystem physicsSystem;
+    private final UserInterfaceSystem userInterfaceSystem;
 
     private CameraController cameraController;
     private final OrthographicCamera orthoCamera;
@@ -63,6 +63,10 @@ public class EditorScreen extends BaseScreen {
         engine.addEntityListener(ComponentFamilies.physics, physicsSystem);
         engine.addSystem(physicsSystem);
 
+        this.userInterfaceSystem = new UserInterfaceSystem(assets, engine);
+        // TODO - setup ui system as entity listener once there are some ui components
+        engine.addSystem(userInterfaceSystem);
+
         this.scene = new Scene(engine);
 
         worldCamera = orthoCamera;
@@ -73,6 +77,8 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public void dispose() {
+        userInterfaceSystem.dispose();
+        physicsSystem.dispose();
         scene.dispose();
     }
 
@@ -90,35 +96,11 @@ public class EditorScreen extends BaseScreen {
         if (Config.Debug.physics) {
             physicsSystem.renderDebug(worldCamera);
         } else {
-            renderSystem.renderShadows(scene, worldCamera, assets.shadowModelBatch);
+            renderSystem.renderShadows(worldCamera, assets.shadowModelBatch, scene);
             renderSystem.render(worldCamera, assets.modelBatch, scene.env());
         }
 
-        // user interface ---------------------------------
-        var batch = assets.batch;
-        batch.setProjectionMatrix(windowCamera.combined);
-        batch.begin();
-        {
-            var font = assets.largeFont;
-            var layout = assets.layout;
-
-            var text = Integer.toString(Gdx.graphics.getFramesPerSecond(), 10);
-            layout.setText(font, text, Color.WHITE, windowCamera.viewportWidth, Align.right, false);
-            font.draw(batch, layout, 0, windowCamera.viewportHeight);
-
-            var str = new StringBuilder();
-            str.append("Entities:\n");
-            var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
-            for (var entity : namedEntities) {
-                var component = entity.getComponent(NameComponent.class);
-                str.append(" - ").append(component.name()).append("\n");
-            }
-            text = str.toString();
-            font = assets.smallFont;
-            layout.setText(font, text, Color.WHITE, windowCamera.viewportWidth, Align.left, false);
-            font.draw(batch, layout, 0, windowCamera.viewportHeight);
-        }
-        batch.end();
+        userInterfaceSystem.render(windowCamera, assets.batch);
     }
 
     private void toggleCamera() {
@@ -131,7 +113,6 @@ public class EditorScreen extends BaseScreen {
         }
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
-        Gdx.input.setCursorCatched(true);
     }
 
     // TESTING -------------------------------

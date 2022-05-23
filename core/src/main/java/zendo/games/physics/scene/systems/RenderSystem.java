@@ -39,7 +39,7 @@ public class RenderSystem extends EntitySystem implements EntityListener {
         batch.end();
     }
 
-    public void renderShadows(Scene scene, Camera camera, ModelBatch shadowModelBatch) {
+    public void renderShadows(Camera camera, ModelBatch shadowModelBatch, Scene scene) {
         scene.shadowLight.begin(Vector3.Zero, camera.direction);
         shadowModelBatch.begin(scene.shadowLight.getCamera());
         shadowModelBatch.render(components);
