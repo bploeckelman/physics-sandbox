@@ -15,6 +15,7 @@ import com.badlogic.gdx.graphics.g3d.Shader;
 import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
@@ -31,6 +32,7 @@ public class Assets implements Disposable {
     public ModelBatch modelBatch;
     public ModelBatch wireframeModelBatch;
     public ModelBatch shadowModelBatch;
+    public ShapeRenderer shapeRenderer;
     public ShapeDrawer shapes;
     public GlyphLayout layout;
     public AssetManager mgr;
@@ -105,6 +107,7 @@ public class Assets implements Disposable {
             }
         });
 
+        shapeRenderer = new ShapeRenderer();
         shapes = new ShapeDrawer(batch, pixelRegion);
         layout = new GlyphLayout();
 
@@ -172,6 +175,7 @@ public class Assets implements Disposable {
     public void dispose() {
         mgr.dispose();
         batch.dispose();
+        shapeRenderer.dispose();
         modelBatch.dispose();
         shadowModelBatch.dispose();
         wireframeModelBatch.dispose();

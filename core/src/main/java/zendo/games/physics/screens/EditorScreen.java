@@ -20,6 +20,7 @@ import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.systems.PhysicsSystem;
+import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.systems.UserInterfaceSystem;
 
@@ -32,6 +33,7 @@ public class EditorScreen extends BaseScreen {
 
     private final Scene scene;
 
+    private final ProviderSystem providerSystem;
     private final RenderSystem renderSystem;
     private final PhysicsSystem physicsSystem;
     private final UserInterfaceSystem userInterfaceSystem;
@@ -39,6 +41,9 @@ public class EditorScreen extends BaseScreen {
     private CameraController cameraController;
     private final OrthographicCamera orthoCamera;
     private final PerspectiveCamera perspectiveCamera;
+
+    private final float SPAWN_TIME = 1f;
+    private float spawnTimer = SPAWN_TIME;
 
     public EditorScreen() {
         var fov = 67f;
@@ -55,6 +60,9 @@ public class EditorScreen extends BaseScreen {
 
         this.worldCamera = perspectiveCamera;
 
+        this.providerSystem = new ProviderSystem();
+        engine.addSystem(providerSystem);
+
         this.renderSystem = new RenderSystem();
         engine.addEntityListener(ComponentFamilies.modelInstances, renderSystem);
         engine.addSystem(renderSystem);
@@ -69,7 +77,7 @@ public class EditorScreen extends BaseScreen {
 
         this.scene = new Scene(engine);
 
-        worldCamera = orthoCamera;
+        this.worldCamera = orthoCamera;
         this.cameraController = new TopDownCameraController(worldCamera);
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
@@ -79,12 +87,20 @@ public class EditorScreen extends BaseScreen {
     public void dispose() {
         userInterfaceSystem.dispose();
         physicsSystem.dispose();
+        providerSystem.dispose();
         scene.dispose();
     }
 
     @Override
     public void update(float delta) {
         super.update(delta);
+
+        spawnTimer -= delta;
+        if (spawnTimer <= 0f) {
+            spawnTimer = SPAWN_TIME;
+            scene.spawnCrate();
+        }
+
         scene.update(delta);
         cameraController.update(delta);
     }
@@ -98,6 +114,10 @@ public class EditorScreen extends BaseScreen {
         } else {
             renderSystem.renderShadows(worldCamera, assets.shadowModelBatch, scene.shadowLight);
             renderSystem.render(worldCamera, assets.modelBatch, scene.env());
+        }
+
+        if (Config.Debug.physics) {
+            physicsSystem.renderDebug(worldCamera);
         }
 
         userInterfaceSystem.render(windowCamera, assets.batch);
@@ -132,6 +152,10 @@ public class EditorScreen extends BaseScreen {
             }
             case Keys.NUM_1 -> {
                 Config.Debug.wireframe = !Config.Debug.wireframe;
+                return true;
+            }
+            case Keys.NUM_2 -> {
+                Config.Debug.physics = !Config.Debug.physics;
                 return true;
             }
             // TESTING -------------------------------

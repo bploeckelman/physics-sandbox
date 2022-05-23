@@ -12,6 +12,8 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.physics.bullet.Bullet;
+import com.badlogic.gdx.physics.bullet.linearmath.LinearMath;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.screens.BaseScreen;
@@ -46,6 +48,9 @@ public class Game extends ApplicationAdapter {
     @Override
     public void create() {
         Game.instance = this;
+
+        Bullet.init();
+        Gdx.app.log(Bullet.class.getSimpleName(), "version " + LinearMath.btGetVersion());
 
         assets = new Assets();
         engine = new Engine();

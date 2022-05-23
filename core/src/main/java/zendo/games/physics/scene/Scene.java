@@ -22,6 +22,9 @@ import com.badlogic.gdx.utils.Disposable;
 import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
 import zendo.games.physics.scene.components.NameComponent;
+import zendo.games.physics.scene.components.PhysicsComponent;
+import zendo.games.physics.scene.providers.CollisionShapeProvider;
+import zendo.games.physics.scene.systems.ProviderSystem;
 
 public class Scene implements Disposable {
 
@@ -133,7 +136,7 @@ public class Scene implements Disposable {
                             , TextureAttribute.createDiffuse(Game.instance.assets.crateTexture)
                     )
             );
-            BoxShapeBuilder.build(partBuilder, 0.5f, 0.5f, 0.5f, 1f, 1f, 1f);
+            BoxShapeBuilder.build(partBuilder, 0, 0, 0, 1, 1, 1);
 
             // --------------------------------------------
             // sphere
@@ -154,17 +157,46 @@ public class Scene implements Disposable {
     }
 
     private void buildTestEntities() {
+        var collisionShapeProvider = engine.getSystem(ProviderSystem.class).collisionShapeProvider;
         Entity entity;
 
-        entity = engine.createEntity()
-                .add(new NameComponent("floor"))
-                .add(new ModelInstanceComponent(model, "floor"));
-        engine.addEntity(entity);
+        // floor ------------------------------------------
+
+        var collisionShape = collisionShapeProvider.get(CollisionShapeProvider.Type.rect);
+        var modelInstanceComponent = new ModelInstanceComponent(model, Nodes.floor.name());
+        var transform = modelInstanceComponent.transform;
 
         entity = engine.createEntity()
-                .add(new NameComponent("axes"))
-                .add(new ModelInstanceComponent(model, "axes"));
+                .add(new NameComponent(Nodes.floor.name()))
+                .add(new PhysicsComponent(0, transform, collisionShape))
+                .add(modelInstanceComponent);
+
         engine.addEntity(entity);
+
+        // coordinate axes --------------------------------
+
+        entity = engine.createEntity()
+                .add(new NameComponent(Nodes.axes.name()))
+                .add(new ModelInstanceComponent(model, Nodes.axes.name()));
+        engine.addEntity(entity);
+
+        // box --------------------------------------------
+
+//        collisionShape = collisionShapeProvider.get(CollisionShapeProvider.Type.box);
+//        modelInstanceComponent = new ModelInstanceComponent(model, Nodes.box.name());
+//        transform = modelInstanceComponent.transform;
+//        transform.translate(0, 10, 0);
+//
+//        // modify material texture
+//        var material = modelInstanceComponent.materials.first();
+//        var diffuseTex = material.get(TextureAttribute.class, TextureAttribute.Diffuse);
+//        diffuseTex.textureDescription.texture = Game.instance.assets.crateTexture;
+//
+//        entity = engine.createEntity()
+//                .add(new NameComponent("crate"))
+//                .add (new PhysicsComponent(transform, collisionShape))
+//                .add(modelInstanceComponent);
+//        engine.addEntity(entity);
 
 //        for (var node : Nodes.values()) {
 //            var name = node.name();
@@ -239,6 +271,28 @@ public class Scene implements Disposable {
 //                            tileSize, tileSize, tileSize
 //                    );
 //        }
+    }
+
+    private int numCrates = 1;
+    public void spawnCrate() {
+        var provider = engine.getSystem(ProviderSystem.class).collisionShapeProvider;
+        var collisionShape = provider.get(CollisionShapeProvider.Type.box);
+        var modelInstanceComponent = new ModelInstanceComponent(model, Nodes.box.name());
+        var transform = modelInstanceComponent.transform;
+
+        // modify initial transform
+        transform.translate(0, 10, 0);
+
+        // modify material texture
+        var material = modelInstanceComponent.materials.first();
+        var diffuseTex = material.get(TextureAttribute.class, TextureAttribute.Diffuse);
+        diffuseTex.textureDescription.texture = Game.instance.assets.crateTexture;
+
+        var entity = engine.createEntity()
+                .add(new NameComponent("crate " + numCrates++))
+                .add (new PhysicsComponent(transform, collisionShape))
+                .add(modelInstanceComponent);
+        engine.addEntity(entity);
     }
 
 }

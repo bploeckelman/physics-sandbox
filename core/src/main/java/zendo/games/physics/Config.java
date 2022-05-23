@@ -5,5 +5,6 @@ public class Config {
         public static boolean general = false;
         public static boolean shaders = false;
         public static boolean wireframe = false;
+        public static boolean physics = false;
     }
 }
