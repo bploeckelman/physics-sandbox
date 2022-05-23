@@ -26,7 +26,6 @@ public class Scene implements Disposable {
 
     private final Engine engine;
     private final Environment environment;
-
     private final Model model;
 
     public DirectionalShadowLight shadowLight;
@@ -52,7 +51,104 @@ public class Scene implements Disposable {
 
         this.model = buildSceneModel();
 
-        // create test entities for each node
+        buildTestEntities();
+    }
+
+    public Environment env() {
+        return environment;
+    }
+
+    public void update(float delta) {
+        // ...
+    }
+
+    @Override
+    public void dispose() {
+        model.dispose();
+    }
+
+    private Model buildSceneModel() {
+        var builder = new ModelBuilder();
+        builder.begin();
+        {
+            String id;
+            var attribs = VertexAttributes.Usage.Position
+                    | VertexAttributes.Usage.Normal
+                    | VertexAttributes.Usage.ColorUnpacked
+                    | VertexAttributes.Usage.TextureCoordinates;
+
+            // --------------------------------------------
+            // floor
+            // --------------------------------------------
+            var floorSize = 100f;
+
+            id = Nodes.floor.name();
+            builder.node().id = id;
+            var partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
+                    new Material(
+                              ColorAttribute.createDiffuse(Color.WHITE)
+                            , ColorAttribute.createSpecular(Color.WHITE)
+                            , FloatAttribute.createShininess(16f)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.prototypeGridOrange)
+                    )
+            );
+            partBuilder.rect(
+                    new MeshPartBuilder.VertexInfo().setPos(-floorSize / 2, 0f, -floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 0),
+                    new MeshPartBuilder.VertexInfo().setPos(-floorSize / 2, 0f,  floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 100),
+                    new MeshPartBuilder.VertexInfo().setPos( floorSize / 2, 0f,  floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 100, 100),
+                    new MeshPartBuilder.VertexInfo().setPos( floorSize / 2, 0f, -floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 100, 0)
+            );
+
+            // --------------------------------------------
+            // axes
+            // --------------------------------------------
+            var axisLength = 10f;
+            var capLength = 0.1f;
+            var stemThickness = 0.2f;
+            var divisions = 6;
+
+            id = Nodes.axes.name();
+            builder.node().id = id;
+            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
+                    new Material(ColorAttribute.createDiffuse(Color.WHITE))
+            );
+            partBuilder.setColor(Color.WHITE); SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 10, 10);
+            partBuilder.setColor(Color.RED);   ArrowShapeBuilder.build(partBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
+            partBuilder.setColor(Color.GREEN); ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
+            partBuilder.setColor(Color.BLUE);  ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
+
+            // --------------------------------------------
+            // box
+            // --------------------------------------------
+            id = Nodes.box.name();
+            builder.node().id = id;
+            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
+                    new Material(
+                              ColorAttribute.createDiffuse(Color.WHITE)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.crateTexture)
+                    )
+            );
+            BoxShapeBuilder.build(partBuilder, 0.5f, 0.5f, 0.5f, 1f, 1f, 1f);
+
+            // --------------------------------------------
+            // sphere
+            // --------------------------------------------
+            id = Nodes.sphere.name();
+            builder.node().id = id;
+            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
+                    new Material(
+                              ColorAttribute.createDiffuse(Color.WHITE)
+                            , ColorAttribute.createSpecular(Color.WHITE)
+                            , FloatAttribute.createShininess(32f)
+                            , TextureAttribute.createDiffuse(Game.instance.assets.metalTexture)
+                    )
+            );
+            SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 16, 16);
+        }
+        return builder.end();
+    }
+
+    private void buildTestEntities() {
         for (var node : Nodes.values()) {
             var name = node.name();
             var entity = engine.createEntity()
@@ -126,100 +222,6 @@ public class Scene implements Disposable {
                             tileSize, tileSize, tileSize
                     );
         }
-    }
-
-    public Environment env() {
-        return environment;
-    }
-
-    public void update(float delta) {
-        // ...
-    }
-
-    @Override
-    public void dispose() {
-        model.dispose();
-    }
-
-    private Model buildSceneModel() {
-        var builder = new ModelBuilder();
-        builder.begin();
-        {
-            String id;
-            var attribs = VertexAttributes.Usage.Position
-                    | VertexAttributes.Usage.Normal
-                    | VertexAttributes.Usage.ColorUnpacked
-                    | VertexAttributes.Usage.TextureCoordinates;
-
-            // --------------------------------------------
-            // floor
-            // --------------------------------------------
-            var floorSize = 100f;
-
-            id = Nodes.floor.name();
-            builder.node().id = id;
-            var partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
-                    new Material(
-                              ColorAttribute.createDiffuse(Color.WHITE)
-                            , ColorAttribute.createSpecular(Color.WHITE)
-                            , FloatAttribute.createShininess(16f)
-                            , TextureAttribute.createDiffuse(Game.instance.assets.prototypeGridOrange)
-                    )
-            );
-            partBuilder.rect(
-                    new MeshPartBuilder.VertexInfo().setPos(-floorSize / 2, 0f, -floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 0),
-                    new MeshPartBuilder.VertexInfo().setPos(-floorSize / 2, 0f,  floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV(0, 10),
-                    new MeshPartBuilder.VertexInfo().setPos( floorSize / 2, 0f,  floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 10, 10),
-                    new MeshPartBuilder.VertexInfo().setPos( floorSize / 2, 0f, -floorSize / 2).setNor(Vector3.Y).setCol(Color.WHITE).setUV( 10, 0)
-            );
-
-            // --------------------------------------------
-            // axes
-            // --------------------------------------------
-            var axisLength = 10f;
-            var capLength = 0.1f;
-            var stemThickness = 0.2f;
-            var divisions = 6;
-
-            id = Nodes.axes.name();
-            builder.node().id = id;
-            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
-                    new Material(ColorAttribute.createDiffuse(Color.WHITE))
-            );
-            partBuilder.setColor(Color.WHITE); SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 10, 10);
-            partBuilder.setColor(Color.RED);   ArrowShapeBuilder.build(partBuilder, 0, 0, 0, axisLength, 0, 0, capLength, stemThickness, divisions);
-            partBuilder.setColor(Color.GREEN); ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, axisLength, 0, capLength, stemThickness, divisions);
-            partBuilder.setColor(Color.BLUE);  ArrowShapeBuilder.build(partBuilder, 0, 0, 0, 0, 0, axisLength, capLength, stemThickness, divisions);
-
-            // --------------------------------------------
-            // box
-            // --------------------------------------------
-            id = Nodes.box.name();
-            builder.node().id = id;
-            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
-                    new Material(
-                              ColorAttribute.createDiffuse(Color.WHITE)
-                            , TextureAttribute.createDiffuse(Game.instance.assets.crateTexture)
-                    )
-            );
-            BoxShapeBuilder.build(partBuilder, 0.5f, 0.5f, 0.5f, 1f, 1f, 1f);
-
-            // --------------------------------------------
-            // sphere
-            // --------------------------------------------
-            id = Nodes.sphere.name();
-            builder.node().id = id;
-            partBuilder = builder.part(id, GL20.GL_TRIANGLES, attribs,
-                    new Material(
-                              ColorAttribute.createDiffuse(Color.WHITE)
-                            , ColorAttribute.createSpecular(Color.WHITE)
-                            , FloatAttribute.createShininess(32f)
-                            , TextureAttribute.createDiffuse(Game.instance.assets.metalTexture)
-                    )
-            );
-            SphereShapeBuilder.build(partBuilder, 1f, 1f, 1f, 16, 16);
-        }
-        return builder.end();
     }
 
 }

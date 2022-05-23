@@ -111,7 +111,7 @@ public class Assets implements Disposable {
             param.wrapV = Texture.TextureWrap.Repeat;
             param.genMipMaps = true;
 
-            mgr.load("prototype-grid-orange.png", Texture.class, param);
+            mgr.load("prototype-grid-orange-lighter.png", Texture.class, param);
             mgr.load("crate.png", Texture.class, param);
             mgr.load("metal.png", Texture.class, param);
 
@@ -133,7 +133,7 @@ public class Assets implements Disposable {
         libgdxTexture = mgr.get("libgdx.png", Texture.class);
         metalTexture = mgr.get("metal.png", Texture.class);
         crateTexture = mgr.get("crate.png", Texture.class);
-        prototypeGridOrange = mgr.get("prototype-grid-orange.png", Texture.class);
+        prototypeGridOrange = mgr.get("prototype-grid-orange-lighter.png", Texture.class);
 
         String defaultVertexPath = "shaders/default.vert";
         {

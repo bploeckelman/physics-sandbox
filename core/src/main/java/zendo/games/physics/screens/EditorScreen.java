@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.StringBuilder;
+import zendo.games.physics.controllers.CameraController;
+import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.sandbox.FreeCameraController;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.NameComponent;
@@ -21,7 +23,8 @@ public class EditorScreen extends BaseScreen {
 
     private final Scene scene;
     private final RenderSystem renderSystem;
-    private final FreeCameraController cameraController;
+
+    private CameraController cameraController;
 
     public EditorScreen() {
         var fov = 67f;
@@ -40,7 +43,7 @@ public class EditorScreen extends BaseScreen {
 
         this.scene = new Scene(engine);
 
-        this.cameraController = new FreeCameraController(worldCamera);
+        this.cameraController = new TopDownCameraController(worldCamera);
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
         Gdx.input.setCursorCatched(true);
@@ -107,6 +110,17 @@ public class EditorScreen extends BaseScreen {
         batch.end();
     }
 
+    private void switchCameras() {
+        if (cameraController instanceof TopDownCameraController) {
+            cameraController = new FreeCameraController(worldCamera);
+        } else if (cameraController instanceof FreeCameraController) {
+            cameraController = new TopDownCameraController(worldCamera);
+        }
+        var mux = new InputMultiplexer(this, cameraController);
+        Gdx.input.setInputProcessor(mux);
+        Gdx.input.setCursorCatched(true);
+    }
+
     // TESTING -------------------------------
     private int componentCount = 1;
     // TESTING -------------------------------
@@ -116,6 +130,10 @@ public class EditorScreen extends BaseScreen {
         switch (keycode) {
             case Keys.ESCAPE -> {
                 Gdx.app.exit();
+                return true;
+            }
+            case Keys.TAB -> {
+                switchCameras();
                 return true;
             }
             // TESTING -------------------------------
