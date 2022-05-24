@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
 import zendo.games.physics.Game;
@@ -60,7 +61,7 @@ public class EditorScreen extends BaseScreen {
 
         this.worldCamera = perspectiveCamera;
 
-        this.providerSystem = new ProviderSystem();
+        this.providerSystem = new ProviderSystem(assets);
         engine.addSystem(providerSystem);
 
         this.renderSystem = new RenderSystem();
@@ -85,10 +86,15 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public void dispose() {
-        userInterfaceSystem.dispose();
-        physicsSystem.dispose();
-        providerSystem.dispose();
         scene.dispose();
+
+        for (var sys : engine.getSystems()) {
+            if (sys instanceof Disposable system) {
+                system.dispose();
+            }
+        }
+        engine.removeAllSystems();
+        engine.removeAllEntities();
     }
 
     @Override

@@ -78,9 +78,11 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
         broadphase.dispose();
         constraintSolver.dispose();
         softBodyWorldInfo.dispose();
-//        dynamicsWorld.dispose();
         contactListener.dispose();
         debugDrawer.dispose();
+
+        // TODO - crash on world dispose, not sure why yet
+//        dynamicsWorld.dispose();
     }
 
     @Override
