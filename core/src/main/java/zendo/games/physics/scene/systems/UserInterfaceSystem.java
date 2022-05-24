@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.StringBuilder;
+import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
@@ -17,15 +18,23 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     private final Assets assets;
     private final Engine engine;
+    private final GUIConsole console;
 
     public UserInterfaceSystem(Assets assets, Engine engine) {
         this.assets = assets;
         this.engine = engine;
+        this.console = new GUIConsole();
+        console.setPosition(0, 0);
+        console.setSizePercent(100, 20);
+    }
+
+    public GUIConsole getConsole() {
+        return console;
     }
 
     @Override
     public void dispose() {
-        // ...
+        console.dispose();
     }
 
     public void render(Camera camera, SpriteBatch batch) {
@@ -53,6 +62,8 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             font.draw(batch, layout, 0, camera.viewportHeight);
         }
         batch.end();
+
+        console.draw();
     }
 
 }

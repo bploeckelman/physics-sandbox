@@ -24,6 +24,7 @@ import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.systems.UserInterfaceSystem;
+import zendo.games.physics.utils.ConsoleCommandExecutor;
 
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
@@ -76,12 +77,18 @@ public class EditorScreen extends BaseScreen {
         // TODO - setup ui system as entity listener once there are some ui components
         engine.addSystem(userInterfaceSystem);
 
+        var console = engine.getSystem(UserInterfaceSystem.class).getConsole();
+        console.setCommandExecutor(new ConsoleCommandExecutor());
+
         this.scene = new Scene(engine);
 
         this.worldCamera = orthoCamera;
         this.cameraController = new TopDownCameraController(worldCamera);
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
+
+        // restore the in-game console to the input multiplexer
+        console.resetInputProcessing();
     }
 
     @Override
@@ -139,6 +146,9 @@ public class EditorScreen extends BaseScreen {
         }
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
+
+        // restore the in-game console to the input multiplexer
+        engine.getSystem(UserInterfaceSystem.class).getConsole().resetInputProcessing();
     }
 
     // TESTING -------------------------------
