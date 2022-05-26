@@ -8,30 +8,35 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
-import zendo.games.physics.Game;
 import zendo.games.physics.controllers.CameraController;
 import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.sandbox.FreeCameraController;
 import zendo.games.physics.scene.Scene;
-import zendo.games.physics.scene.components.ModelInstanceComponent;
 import zendo.games.physics.scene.components.NameComponent;
+import zendo.games.physics.scene.components.PhysicsComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.systems.UserInterfaceSystem;
-import zendo.games.physics.utils.ConsoleCommandExecutor;
+
+import java.util.Objects;
 
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
+import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
 
 public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
+    private static final Pool<Vector3> vec3Pool = Pools.get(Vector3.class);
 
     private final Scene scene;
 
@@ -77,9 +82,6 @@ public class EditorScreen extends BaseScreen {
         // TODO - setup ui system as entity listener once there are some ui components
         engine.addSystem(userInterfaceSystem);
 
-        var console = engine.getSystem(UserInterfaceSystem.class).getConsole();
-        console.setCommandExecutor(new ConsoleCommandExecutor());
-
         this.scene = new Scene(engine);
 
         this.worldCamera = orthoCamera;
@@ -87,8 +89,8 @@ public class EditorScreen extends BaseScreen {
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
 
-        // restore the in-game console to the input multiplexer
-        console.resetInputProcessing();
+        // re-add the in-game console to the input multiplexer
+        userInterfaceSystem.getConsole().resetInputProcessing();
     }
 
     @Override
@@ -108,10 +110,13 @@ public class EditorScreen extends BaseScreen {
     public void update(float delta) {
         super.update(delta);
 
-        spawnTimer -= delta;
-        if (spawnTimer <= 0f) {
-            spawnTimer = SPAWN_TIME;
-            scene.spawnCrate();
+        if (userInterfaceSystem.getCommandExecutor().isObjectSpawningEnabled) {
+            spawnTimer -= delta;
+            if (spawnTimer <= 0f) {
+                spawnTimer = SPAWN_TIME;
+                // TODO - pick position in a random tile
+                scene.spawnCrate();
+            }
         }
 
         scene.update(delta);
@@ -205,11 +210,25 @@ public class EditorScreen extends BaseScreen {
             var tileSize = 10f;
             var x = MathUtils.floor(pointerPos.x / tileSize) * tileSize;
             var z = MathUtils.floor(pointerPos.z / tileSize) * tileSize;
-
             var offset = tileSize / 2f;
+            var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
+            var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
+
+            // update the model instance
             var instance = ComponentMappers.modelInstance.get(editInfo.heldEntity);
             if (instance != null) {
-                instance.transform.setToTranslation(offset + x, 0, offset + z);
+                instance.transform.setToTranslation(position);
+//                instance.transform.setToTranslationAndScaling(position, scaling);
+            }
+
+            // update the physics body
+            var physics = ComponentMappers.physics.get(editInfo.heldEntity);
+            if (physics != null) {
+                var transform = physics.rigidBody.getWorldTransform();
+                transform.idt();
+                transform.translate(position);
+                transform.rotate(Vector3.X, -90f);
+                physics.rigidBody.setWorldTransform(transform);
             }
             return true;
         }
@@ -226,6 +245,7 @@ public class EditorScreen extends BaseScreen {
             case Buttons.LEFT -> {
                 if (editInfo.isHolding()) {
                     // give it a new name and then leave the held entity in the world in its current configuration
+                    // TODO - store a tentative name on the thing on creation
                     editInfo.heldEntity.add(new NameComponent("tile " + componentCount++));
                     editInfo.releaseEntity();
                 } else {
@@ -236,15 +256,47 @@ public class EditorScreen extends BaseScreen {
                     var tileSize = 10f;
                     var x = MathUtils.floor(pointerPos.x / tileSize) * tileSize;
                     var z = MathUtils.floor(pointerPos.z / tileSize) * tileSize;
-
                     var offset = tileSize / 2f;
-                    var model = Game.instance.assets.mgr.get("start.g3db", Model.class);
-                    var instance = new ModelInstanceComponent(model);
-                    instance.transform.setToTranslation(offset + x, 0, offset + z);
+                    var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
+                    var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
+
+                    // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
+                    // create the model instance
+                    var fileName = "start.g3db"; // big
+//                    var fileName = "tile-start.g3db"; // small
+//                    var fileName = "straight.g3db";   // small
+                    var models = providerSystem.modelProvider;
+                    var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
+                    Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
+
+                    var instance = models.createModelInstanceComponent(fileName);
+                    instance.transform.setToTranslation(position);
+//                    instance.transform.setToTranslationAndScaling(position, scaling);
+
+                    // create the physics body
+                    var key = fileName.substring(1, fileName.indexOf('.')) + (componentCount + 1);
+                    var shape = providerSystem.collisionShapeProvider
+                            .builder(Type.custom, key).model(model).build();
+                    // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
+                    shape.setLocalScaling(scaling);
+
+                    var physics = new PhysicsComponent(0f, instance.transform, shape);
+
+                    // manage the rigidBody translation manually
+                    // instead of letting bullet do it with the motion state
+                    // TODO - make things like this into construction parameters
+                    physics.rigidBody.setMotionState(null);
+
+                    // set initial position and orientation of physics body
+                    var transform = physics.rigidBody.getWorldTransform();
+                    // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
+                    transform.rotate(Vector3.X, -90f);
+                    physics.rigidBody.setWorldTransform(transform);
 
                     var entity = engine.createEntity()
                             .add(new NameComponent("Held Tile"))
-                            .add(instance);
+                            .add(instance)
+                            .add(physics);
                     engine.addEntity(entity);
 
                     editInfo.heldEntity = entity;

@@ -13,12 +13,14 @@ import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
+import zendo.games.physics.utils.ConsoleCommandExecutor;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     private final Assets assets;
     private final Engine engine;
     private final GUIConsole console;
+    private final ConsoleCommandExecutor commandExecutor;
 
     public UserInterfaceSystem(Assets assets, Engine engine) {
         this.assets = assets;
@@ -26,10 +28,17 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         this.console = new GUIConsole();
         console.setPosition(0, 0);
         console.setSizePercent(100, 20);
+
+        this.commandExecutor = new ConsoleCommandExecutor();
+        console.setCommandExecutor(commandExecutor);
     }
 
     public GUIConsole getConsole() {
         return console;
+    }
+
+    public ConsoleCommandExecutor getCommandExecutor() {
+        return commandExecutor;
     }
 
     @Override

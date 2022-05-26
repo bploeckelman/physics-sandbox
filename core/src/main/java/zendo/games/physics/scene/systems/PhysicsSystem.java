@@ -26,6 +26,7 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
 
     public static class Flags {
         public static int ground = 1 << 9;
+        public static int object = 1 << 8;
     }
 
     private final ObjectSet<Entity> entities = new ObjectSet<>();
@@ -66,7 +67,6 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
         debugDrawer.setSpriteBatch(Game.instance.assets.batch);
         debugDrawer.setShapeRenderer(Game.instance.assets.shapeRenderer);
         debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_DrawWireframe | btIDebugDraw.DebugDrawModes.DBG_DrawContactPoints);
-
         dynamicsWorld.setDebugDrawer(debugDrawer);
     }
 

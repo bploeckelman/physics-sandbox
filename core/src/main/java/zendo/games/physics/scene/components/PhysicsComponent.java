@@ -4,14 +4,16 @@ import com.badlogic.ashley.core.Component;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.Collision;
-import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btMotionState;
 import com.badlogic.gdx.utils.Disposable;
 import lombok.RequiredArgsConstructor;
+import zendo.games.physics.Game;
+import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.systems.PhysicsSystem;
 
+import static com.badlogic.gdx.physics.bullet.collision.btCollisionObject.CollisionFlags;
 import static com.badlogic.gdx.physics.bullet.dynamics.btRigidBody.btRigidBodyConstructionInfo;
 
 public class PhysicsComponent implements Component, Disposable {
@@ -19,7 +21,7 @@ public class PhysicsComponent implements Component, Disposable {
     private static final Vector3 localInteria = new Vector3();
 
     private final MotionState motionState;
-    private final btCollisionShape collisionShape; // TODO - make provider?
+    private final btCollisionShape collisionShape;
     private final btRigidBodyConstructionInfo constructionInfo;
 
     public final btRigidBody rigidBody;
@@ -40,21 +42,26 @@ public class PhysicsComponent implements Component, Disposable {
             collisionShape.calculateLocalInertia(mass, localInteria);
         }
 
-        this.constructionInfo = new btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInteria);
+        this.constructionInfo = new btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInteria.cpy());
         this.rigidBody = new btRigidBody(constructionInfo);
 
-        // NOTE - probably don't need this if it's passed in on construction
-//        rigidBody.setMotionState(motionState);
+        // configure the rigid body
+        rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+//        rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | CollisionFlags.CF_KINEMATIC_OBJECT);
 
-        // TODO - a bunch of these settings should be construction parameters somehow
-//        rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_KINEMATIC_OBJECT);
-        rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
-        rigidBody.setContactCallbackFlag(PhysicsSystem.Flags.ground);
-        rigidBody.setContactCallbackFilter(0);
-
+        // a mass of zero indicates that the body is manually re-oriented
+        // so the body's activation state shouldn't be managed by bullet
         if (mass == 0) {
-            // NOTE - since this body is moved manually the rigid body's activation state shouldn't be managed by Bullet
+            rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | CollisionFlags.CF_KINEMATIC_OBJECT);
             rigidBody.setActivationState(Collision.DISABLE_DEACTIVATION);
+            rigidBody.setContactCallbackFlag(PhysicsSystem.Flags.ground);
+            rigidBody.setContactCallbackFilter(0);
+        }
+        else {
+            var numPhysicsEntities = Game.instance.engine.getEntitiesFor(ComponentFamilies.physics).size();
+            rigidBody.setUserValue(numPhysicsEntities);
+            rigidBody.setContactCallbackFlag(PhysicsSystem.Flags.object);
+            rigidBody.setContactCallbackFilter(PhysicsSystem.Flags.ground);
         }
 
 //        var object = gameObjectBuilders.get(GameObject.Type.random()).build();
@@ -63,7 +70,7 @@ public class PhysicsComponent implements Component, Disposable {
 //            object.transform.trn(posX, posY, posZ);
 //            object.rigidBody.proceedToTransform(object.transform);
 //            object.rigidBody.setUserValue(gameObjects.size);
-//            object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | btCollisionObject.CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
+//            object.rigidBody.setCollisionFlags(object.rigidBody.getCollisionFlags() | CollisionFlags.CF_CUSTOM_MATERIAL_CALLBACK);
 //            object.rigidBody.setContactCallbackFlag(OBJECT_FLAG);
 //            object.rigidBody.setContactCallbackFilter(SOFT_FLAG);
 //        }
@@ -71,6 +78,10 @@ public class PhysicsComponent implements Component, Disposable {
 //        dynamicsWorld.addRigidBody(object.rigidBody);
 
         this.outOfBounds = false;
+    }
+
+    public btCollisionShape shape() {
+        return collisionShape;
     }
 
     @Override

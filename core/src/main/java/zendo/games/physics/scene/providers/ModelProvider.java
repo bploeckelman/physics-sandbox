@@ -17,6 +17,7 @@ import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
 import zendo.games.physics.Assets;
 import zendo.games.physics.Config;
+import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.ModelInstanceComponent;
 
 import java.util.Objects;
@@ -41,8 +42,14 @@ public class ModelProvider implements Provider<Model> {
     public void dispose() {
         model.dispose();
 
+        // TODO - ideally all models should be loaded from the asset mgr
+        //  then any models in customModels would be managed elsewhere
+        //  and this dispose block could be removed
+        var assets = Game.instance.assets;
         for (var model : customModels.values()) {
-            model.dispose();
+            if (!assets.mgr.containsAsset(model)) {
+                model.dispose();
+            }
         }
         customModels.clear();
     }
@@ -80,6 +87,12 @@ public class ModelProvider implements Provider<Model> {
         } else {
             throw new GdxRuntimeException("Failed to create model instance: invalid key '" + key + "'");
         }
+    }
+
+    public Model getOrCreate(String key, Model model) {
+        return (customModels.containsKey(key))
+                ? customModels.get(key)
+                : create(key, model);
     }
 
     public Model create(String key, Model model) {

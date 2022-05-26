@@ -129,6 +129,8 @@ public class Assets implements Disposable {
             mgr.load("metal.png", Texture.class, param);
 
             mgr.load("start.g3db", Model.class);
+            mgr.load("straight.g3db", Model.class);
+            mgr.load("tile-start.g3db", Model.class);
         }
 
         if (load == Load.SYNC) {
