@@ -10,8 +10,6 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.Pool;
-import com.badlogic.gdx.utils.Pools;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
 import zendo.games.physics.controllers.CameraController;
@@ -36,7 +34,6 @@ import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
 public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
-    private static final Pool<Vector3> vec3Pool = Pools.get(Vector3.class);
 
     private final Scene scene;
 
@@ -179,11 +176,16 @@ public class EditorScreen extends BaseScreen {
                 Config.Debug.physics = !Config.Debug.physics;
                 return true;
             }
-            // TESTING -------------------------------
             case Keys.SPACE -> {
-                var name = "Test " + componentCount++;
-                var entity = engine.createEntity().add(new NameComponent(name));
-                engine.addEntity(entity);
+                if (worldCamera instanceof PerspectiveCamera) {
+                    scene.spawnShot(worldCamera);
+                }
+                return true;
+            }
+            // TESTING -------------------------------
+            case Keys.PLUS -> {
+                engine.addEntity(engine.createEntity()
+                        .add(new NameComponent("TEST" + componentCount++)));
                 return true;
             }
             case Keys.DEL -> {
@@ -230,6 +232,9 @@ public class EditorScreen extends BaseScreen {
                 transform.rotate(Vector3.X, -90f);
                 physics.rigidBody.setWorldTransform(transform);
             }
+
+            vec3Pool.free(position);
+            vec3Pool.free(scaling);
             return true;
         }
         return super.mouseMoved(screenX, screenY);
@@ -238,6 +243,7 @@ public class EditorScreen extends BaseScreen {
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
         if (worldCamera instanceof PerspectiveCamera) {
+            scene.spawnShot(worldCamera);
             return super.touchUp(screenX, screenY, pointer, button);
         }
 
@@ -300,6 +306,9 @@ public class EditorScreen extends BaseScreen {
                     engine.addEntity(entity);
 
                     editInfo.heldEntity = entity;
+
+                    vec3Pool.free(position);
+                    vec3Pool.free(scaling);
                 }
                 return true;
             }

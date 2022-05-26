@@ -10,6 +10,8 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
 import zendo.games.physics.Assets;
 import zendo.games.physics.Config;
 import zendo.games.physics.Game;
@@ -17,6 +19,8 @@ import zendo.games.physics.Game;
 public abstract class BaseScreen implements InputProcessor, ControllerListener, Disposable {
 
     private static final String TAG = BaseScreen.class.getSimpleName();
+
+    public static final Pool<Vector3> vec3Pool = Pools.get(Vector3.class);
 
     public final Game game;
     public final Assets assets;
