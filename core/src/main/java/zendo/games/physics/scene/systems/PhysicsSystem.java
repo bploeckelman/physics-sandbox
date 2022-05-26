@@ -97,8 +97,10 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
     @Override
     public void entityRemoved(Entity entity) {
         var component = mapper.get(entity);
-        component.dispose();
-        dynamicsWorld.removeRigidBody(component.rigidBody);
+        if (!component.rigidBody.isDisposed()) {
+            dynamicsWorld.removeRigidBody(component.rigidBody);
+            component.dispose();
+        }
         components.remove(component);
         entities.remove(entity);
     }
