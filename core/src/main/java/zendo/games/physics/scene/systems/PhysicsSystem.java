@@ -15,11 +15,10 @@ import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyRigidBodyCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftBodyWorldInfo;
 import com.badlogic.gdx.physics.bullet.softbody.btSoftRigidDynamicsWorld;
-import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.ObjectSet;
 import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.PhysicsComponent;
+import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 
 public class PhysicsSystem extends EntitySystem implements EntityListener, Disposable {
@@ -29,8 +28,6 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
         public static int object = 1 << 8;
     }
 
-    private final ObjectSet<Entity> entities = new ObjectSet<>();
-    private final ObjectSet<PhysicsComponent> components = new ObjectSet<>();
     private final ComponentMapper<PhysicsComponent> mapper = ComponentMappers.physics;
 
     private final btDispatcher dispatcher;
@@ -43,8 +40,6 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
 
     private final Contacts contactListener;
     private final DebugDrawer debugDrawer;
-
-    private final Array<PhysicsComponent> componentsToRemove = new Array<>();
 
     public PhysicsSystem() {
         collisionConfig = new btSoftBodyRigidBodyCollisionConfiguration();
@@ -72,7 +67,6 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
 
     @Override
     public void dispose() {
-        components.forEach(PhysicsComponent::dispose);
         collisionConfig.dispose();
         dispatcher.dispose();
         broadphase.dispose();
@@ -89,9 +83,6 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
     public void entityAdded(Entity entity) {
         var component = mapper.get(entity);
         dynamicsWorld.addRigidBody(component.rigidBody);
-
-        components.add(component);
-        entities.add(entity);
     }
 
     @Override
@@ -101,22 +92,17 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
             dynamicsWorld.removeRigidBody(component.rigidBody);
             component.dispose();
         }
-        components.remove(component);
-        entities.remove(entity);
     }
 
     @Override
     public void update(float delta) {
-        componentsToRemove.clear();
-
-        for (var component : components) {
-            if (component.outOfBounds) {
-                componentsToRemove.add(component);
+        var engine = getEngine();
+        var entities = engine.getEntitiesFor(ComponentFamilies.physics);
+        for (var entity : entities) {
+            var physics = mapper.get(entity);
+            if (physics.outOfBounds) {
+                engine.removeEntity(entity);
             }
-        }
-
-        for (var component : componentsToRemove) {
-            components.remove(component);
         }
 
         dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);

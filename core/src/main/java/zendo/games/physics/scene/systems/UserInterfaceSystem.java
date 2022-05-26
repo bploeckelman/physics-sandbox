@@ -19,8 +19,9 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     private final Assets assets;
     private final Engine engine;
-    private final GUIConsole console;
-    private final ConsoleCommandExecutor commandExecutor;
+
+    public final GUIConsole console;
+    public final ConsoleCommandExecutor commandExecutor;
 
     public UserInterfaceSystem(Assets assets, Engine engine) {
         this.assets = assets;
@@ -31,14 +32,6 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
         this.commandExecutor = new ConsoleCommandExecutor();
         console.setCommandExecutor(commandExecutor);
-    }
-
-    public GUIConsole getConsole() {
-        return console;
-    }
-
-    public ConsoleCommandExecutor getCommandExecutor() {
-        return commandExecutor;
     }
 
     @Override
@@ -57,9 +50,9 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.right, false);
             font.draw(batch, layout, 0, camera.viewportHeight);
 
-            var str = new StringBuilder();
-            str.append("Entities:\n");
             var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
+            var str = new StringBuilder();
+            str.append("Entities: " + namedEntities.size() + "\n");
             for (var entity : namedEntities) {
                 var component = ComponentMappers.name.get(entity);
                 str.append(" - ").append(component.name()).append("\n");

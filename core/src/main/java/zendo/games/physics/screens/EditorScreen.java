@@ -87,7 +87,7 @@ public class EditorScreen extends BaseScreen {
         Gdx.input.setInputProcessor(mux);
 
         // re-add the in-game console to the input multiplexer
-        userInterfaceSystem.getConsole().resetInputProcessing();
+        userInterfaceSystem.console.resetInputProcessing();
     }
 
     @Override
@@ -107,7 +107,7 @@ public class EditorScreen extends BaseScreen {
     public void update(float delta) {
         super.update(delta);
 
-        if (userInterfaceSystem.getCommandExecutor().isObjectSpawningEnabled) {
+        if (userInterfaceSystem.commandExecutor.isObjectSpawningEnabled) {
             spawnTimer -= delta;
             if (spawnTimer <= 0f) {
                 spawnTimer = SPAWN_TIME;
@@ -150,7 +150,7 @@ public class EditorScreen extends BaseScreen {
         Gdx.input.setInputProcessor(mux);
 
         // restore the in-game console to the input multiplexer
-        engine.getSystem(UserInterfaceSystem.class).getConsole().resetInputProcessing();
+        engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
     }
 
     // TESTING -------------------------------
