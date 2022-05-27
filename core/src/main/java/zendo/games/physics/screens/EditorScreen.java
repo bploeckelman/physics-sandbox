@@ -29,6 +29,7 @@ import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.systems.UserInterfaceSystem;
+import zendo.games.physics.utils.Calc;
 
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
@@ -49,8 +50,11 @@ public class EditorScreen extends BaseScreen {
     private final PerspectiveCamera perspectiveCamera;
     private final EditInfo editInfo;
 
-    private final float SPAWN_TIME = 1f;
+    private final Vector3 spawnPosition = new Vector3(0f, 15f, 0f);
+    private final float SPAWN_TIME = 0.5f;
     private float spawnTimer = SPAWN_TIME;
+    private float angleAccum = 0f;
+    private float amplitude = 0f;
 
     public EditorScreen() {
         var fov = 67f;
@@ -113,10 +117,15 @@ public class EditorScreen extends BaseScreen {
         super.update(delta);
 
         if (userInterfaceSystem.commandExecutor.isObjectSpawningEnabled) {
+            angleAccum += delta;
+            amplitude = Calc.sin_deg_xform(angleAccum, 0f, 20f, 2f, 0f);
+            spawnPosition.x = Calc.sin_deg_xform(angleAccum, 0f, amplitude, 20f, 0f);
+            spawnPosition.z = Calc.cos_deg_xform(angleAccum, 0f, amplitude, 20f, 0f);
+
             spawnTimer -= delta;
             if (spawnTimer <= 0f) {
                 spawnTimer = SPAWN_TIME;
-                EntityFactory.createCrate(engine);
+                EntityFactory.createCrate(engine, spawnPosition);
             }
         }
 

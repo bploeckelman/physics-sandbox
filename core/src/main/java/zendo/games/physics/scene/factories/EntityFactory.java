@@ -94,11 +94,11 @@ public class EntityFactory {
 
     // TODO - set optional initial position
 
-    public static Entity createCrate(Engine engine) {
-        return createCrate(engine, true);
+    public static Entity createCrate(Engine engine, Vector3 position) {
+        return createCrate(engine, position, true);
     }
 
-    public static Entity createCrate(Engine engine, boolean addToEngine) {
+    public static Entity createCrate(Engine engine, Vector3 position, boolean addToEngine) {
         var providers = engine.getSystem(ProviderSystem.class);
 
         var entity = engine.createEntity();
@@ -109,7 +109,8 @@ public class EntityFactory {
             var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
 
             var transform = modelInstance.transform;
-            transform.translate(0, 15, 0);
+            transform.setTranslation(position);
+//            transform.translate(0, 15, 0);
 
             var material = modelInstance.getMaterial(node.name());
             material.get(TextureAttribute.class, TextureAttribute.Diffuse)

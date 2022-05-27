@@ -6,6 +6,22 @@ import com.badlogic.gdx.math.Vector2;
 public class Calc {
 
     /**
+     * Given the specified angle in degrees,
+     * transform the sin of that angle by the specified parameters
+     */
+    public static float sin_deg_xform(float angle, float restPos, float amplitude, float frequency, float phase) {
+        return restPos + amplitude * MathUtils.sinDeg(frequency * (angle - phase));
+    }
+
+    /**
+     * Given the specified angle in degrees,
+     * transform the cos of that angle by the specified parameters
+     */
+    public static float cos_deg_xform(float angle, float restPos, float amplitude, float frequency, float phase) {
+        return restPos + amplitude * MathUtils.cosDeg(frequency * (angle - phase));
+    }
+
+    /**
      * Given a line segment (x0,y0)..(x1,y1) and an x value,
      * return the y value such that (x,y) is on the line
      */
