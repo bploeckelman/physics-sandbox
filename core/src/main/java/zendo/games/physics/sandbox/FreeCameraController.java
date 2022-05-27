@@ -24,8 +24,8 @@ public class FreeCameraController extends CameraController {
     private final int STRAFE_RIGHT = Input.Keys.D;
     private final int FORWARD = Input.Keys.W;
     private final int BACKWARD = Input.Keys.S;
-    private final int UP = Input.Keys.Q;
-    private final int DOWN = Input.Keys.E;
+    private final int UP = Input.Keys.E;
+    private final int DOWN = Input.Keys.Q;
 
     // TODO - don't allow slight roll with middle mouse
 

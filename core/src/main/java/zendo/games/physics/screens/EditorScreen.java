@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -182,6 +183,21 @@ public class EditorScreen extends BaseScreen {
                 }
                 return true;
             }
+            case Keys.F -> {
+                if (worldCamera instanceof OrthographicCamera) {
+                    if (editInfo.isHolding()) {
+                        rotateEntityCCW(editInfo.heldEntity);
+                    }
+                }
+                return true;
+            }
+            case Keys.G -> {
+                if (worldCamera instanceof OrthographicCamera) {
+                    if (editInfo.isHolding()) {
+                        rotateEntityCW(editInfo.heldEntity);
+                    }
+                }
+            }
             // TESTING -------------------------------
             case Keys.PLUS -> {
                 engine.addEntity(engine.createEntity()
@@ -215,24 +231,21 @@ public class EditorScreen extends BaseScreen {
             var offset = tileSize / 2f;
             var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
             var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
+            {
+                // update the model instance position
+                var instance = ComponentMappers.modelInstance.get(editInfo.heldEntity);
+                if (instance != null) {
+                    instance.transform.setTranslation(position);
+                }
 
-            // update the model instance
-            var instance = ComponentMappers.modelInstance.get(editInfo.heldEntity);
-            if (instance != null) {
-                instance.transform.setToTranslation(position);
-//                instance.transform.setToTranslationAndScaling(position, scaling);
+                // update the physics body position
+                var physics = ComponentMappers.physics.get(editInfo.heldEntity);
+                if (physics != null) {
+                    var transform = physics.rigidBody.getWorldTransform();
+                    transform.setTranslation(position);
+                    physics.rigidBody.setWorldTransform(transform);
+                }
             }
-
-            // update the physics body
-            var physics = ComponentMappers.physics.get(editInfo.heldEntity);
-            if (physics != null) {
-                var transform = physics.rigidBody.getWorldTransform();
-                transform.idt();
-                transform.translate(position);
-                transform.rotate(Vector3.X, -90f);
-                physics.rigidBody.setWorldTransform(transform);
-            }
-
             vec3Pool.free(position);
             vec3Pool.free(scaling);
             return true;
@@ -326,7 +339,11 @@ public class EditorScreen extends BaseScreen {
     }
 
     static class EditInfo {
-        public Entity heldEntity = null;
+        final Vector3 translation = new Vector3();
+        final Quaternion rotation = new Quaternion();
+
+        Entity heldEntity = null;
+
         public boolean isHolding() {
             return heldEntity != null;
         }
@@ -335,5 +352,43 @@ public class EditorScreen extends BaseScreen {
         }
     }
     private final EditInfo editInfo = new EditInfo();
+
+    private void rotateEntityCW(Entity entity) {
+        // update model transform
+        var instance = ComponentMappers.modelInstance.get(entity);
+        instance.transform.rotate(Vector3.Y, -90f);
+
+        // update physics transform
+        var physics = ComponentMappers.physics.get(entity);
+        var transform = physics.rigidBody.getWorldTransform();
+        transform.getTranslation(editInfo.translation);
+        transform.getRotation(editInfo.rotation);
+        var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+        transform.idt()
+                .rotate(Vector3.Y, yAngle - 90f)
+                .rotate(Vector3.X, -90f)
+                .setTranslation(editInfo.translation)
+        ;
+        physics.rigidBody.setWorldTransform(transform);
+    }
+
+    private void rotateEntityCCW(Entity entity) {
+        // update model transform
+        var instance = ComponentMappers.modelInstance.get(entity);
+        instance.transform.rotate(Vector3.Y, 90f);
+
+        // update physics transform
+        var physics = ComponentMappers.physics.get(entity);
+        var transform = physics.rigidBody.getWorldTransform();
+        transform.getTranslation(editInfo.translation);
+        transform.getRotation(editInfo.rotation);
+        var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+        transform.idt()
+                .rotate(Vector3.Y, yAngle + 90f)
+                .rotate(Vector3.X, -90f)
+                .setTranslation(editInfo.translation)
+        ;
+        physics.rigidBody.setWorldTransform(transform);
+    }
 
 }
