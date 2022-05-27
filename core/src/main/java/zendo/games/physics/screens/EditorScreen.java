@@ -95,13 +95,13 @@ public class EditorScreen extends BaseScreen {
     public void dispose() {
         scene.dispose();
 
+        engine.removeAllEntities();
         for (var sys : engine.getSystems()) {
             if (sys instanceof Disposable system) {
                 system.dispose();
             }
         }
         engine.removeAllSystems();
-        engine.removeAllEntities();
     }
 
     @Override
