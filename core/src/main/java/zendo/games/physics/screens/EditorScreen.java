@@ -21,6 +21,7 @@ import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.PhysicsComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
+import zendo.games.physics.scene.factories.EntityFactory;
 import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
@@ -112,8 +113,7 @@ public class EditorScreen extends BaseScreen {
             spawnTimer -= delta;
             if (spawnTimer <= 0f) {
                 spawnTimer = SPAWN_TIME;
-                // TODO - pick position in a random tile
-                scene.spawnCrate();
+                EntityFactory.createCrate(engine);
             }
         }
 
@@ -179,7 +179,7 @@ public class EditorScreen extends BaseScreen {
             }
             case Keys.SPACE -> {
                 if (worldCamera instanceof PerspectiveCamera) {
-                    scene.spawnShot(worldCamera);
+                    EntityFactory.createShot(engine, worldCamera);
                 }
                 return true;
             }
@@ -256,7 +256,7 @@ public class EditorScreen extends BaseScreen {
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
         if (worldCamera instanceof PerspectiveCamera) {
-            scene.spawnShot(worldCamera);
+            EntityFactory.createShot(engine, worldCamera);
             return super.touchUp(screenX, screenY, pointer, button);
         }
 
@@ -271,6 +271,8 @@ public class EditorScreen extends BaseScreen {
                     // create a new entity in the clicked tile
                     worldCamera.getPickRay(screenX, screenY)
                                .getEndPoint(pointerPos, worldCamera.position.y);
+
+                    // TODO - if the current pick tile is already occupied, select it instead
 
                     var tileSize = 10f;
                     var x = MathUtils.floor(pointerPos.x / tileSize) * tileSize;

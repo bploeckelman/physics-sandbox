@@ -1,33 +1,20 @@
 package zendo.games.physics.scene;
 
 import com.badlogic.ashley.core.Engine;
-import com.badlogic.ashley.core.Entity;
-import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
-import zendo.games.physics.Game;
-import zendo.games.physics.scene.components.ModelInstanceComponent;
-import zendo.games.physics.scene.components.NameComponent;
-import zendo.games.physics.scene.components.PhysicsComponent;
-import zendo.games.physics.scene.providers.ModelProvider;
-import zendo.games.physics.scene.systems.ProviderSystem;
-import zendo.games.physics.screens.BaseScreen;
-
-import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
+import zendo.games.physics.scene.factories.EntityFactory;
 
 public class Scene implements Disposable {
 
     private final Engine engine;
     private final Environment environment;
 
-    private int numCratesSpawned = 1;
-
-    public DirectionalShadowLight shadowLight;
+    public final DirectionalShadowLight shadowLight;
 
     public Scene(Engine engine) {
         this.engine = engine;
@@ -46,7 +33,7 @@ public class Scene implements Disposable {
         environment.add(shadowLight);
         environment.shadowMap = shadowLight;
 
-        buildTestEntities();
+        createInitialEntities();
     }
 
     @Override
@@ -62,114 +49,9 @@ public class Scene implements Disposable {
         // ...
     }
 
-    private void buildTestEntities() {
-        String name;
-        Entity entity;
-        var providers = engine.getSystem(ProviderSystem.class);
-
-        name = "physics_floor";
-        {
-            var size = 80f;
-            var collisionShape = providers.collisionShapeProvider
-                    .builder(Type.rect, name)
-                    .halfExtents(size / 2, 0f, size / 2)
-                    .build();
-
-            var model = providers.modelProvider.get(ModelProvider.Node.patch);
-            var modelInstanceComponent = new ModelInstanceComponent(model, ModelProvider.Node.patch.name());
-
-            var transform = modelInstanceComponent.transform.cpy();
-            modelInstanceComponent.transform.setToScaling(size, 1f, size);
-
-            entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(new PhysicsComponent(0, transform, collisionShape))
-                    .add(modelInstanceComponent);
-            engine.addEntity(entity);
-        }
-
-        name = "axes";
-        {
-            entity = engine.createEntity()
-                    .add(new NameComponent(name))
-                    .add(providers.modelProvider.createModelInstanceComponent(ModelProvider.Node.axes));
-            engine.addEntity(entity);
-        }
-    }
-
-    public void spawnCrate() {
-        var providers = engine.getSystem(ProviderSystem.class);
-
-        var collisionShape = providers.collisionShapeProvider.get(Type.box);
-
-        var node = ModelProvider.Node.cube;
-        var modelInstanceComponent = providers.modelProvider.createModelInstanceComponent(node);
-
-        // modify initial transform
-        var transform = modelInstanceComponent.transform;
-        transform.translate(0, 15, 0);
-
-        // modify material texture
-        var material = modelInstanceComponent.getMaterial(node.name());
-        material.get(TextureAttribute.class, TextureAttribute.Diffuse)
-                .textureDescription.texture = Game.instance.assets.crateTexture;
-
-        var entity = engine.createEntity()
-                .add(new NameComponent("crate " + numCratesSpawned++))
-                .add (new PhysicsComponent(transform, collisionShape))
-                .add(modelInstanceComponent);
-        engine.addEntity(entity);
-    }
-
-    private int numShotsSpawned = 0;
-    private final Vector3 pickEndPoint = new Vector3();
-    public void spawnShot(Camera camera) {
-        spawnShot(camera, camera.viewportWidth / 2f, camera.viewportHeight / 2f);
-    }
-    public void spawnShot(Camera camera, float screenX, float screenY) {
-        var providers = engine.getSystem(ProviderSystem.class);
-
-        // setup model instance
-        var node = ModelProvider.Node.sphere;
-        var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
-
-        // modify material texture
-        var material = modelInstance.getMaterial(node.name());
-        material.get(TextureAttribute.class, TextureAttribute.Diffuse)
-                .textureDescription.texture = Game.instance.assets.metalTexture;
-
-        // set initial transform
-        var scale = 2f;
-        var impulse = 30f;
-        var pickRay = camera.getPickRay(screenX, screenY);
-        pickRay.getEndPoint(pickEndPoint, camera.position.y);
-
-        var angles = BaseScreen.vec3Pool.obtain().setZero();
-        var position = BaseScreen.vec3Pool.obtain().set(
-                pickRay.origin.x + pickRay.direction.x * scale,
-                pickRay.origin.y + pickRay.direction.y * scale,
-                pickRay.origin.z + pickRay.direction.z * scale
-        );
-
-        var transform = modelInstance.transform;
-        transform.setFromEulerAngles(angles.x, angles.y, angles.z);
-        transform.trn(position);
-
-        // setup physics
-        var collisionShape = providers.collisionShapeProvider.get(Type.sphere);
-        var physics = new PhysicsComponent(transform, collisionShape);
-        physics.rigidBody.setUserValue(numShotsSpawned);
-        physics.rigidBody.proceedToTransform(transform);
-        physics.rigidBody.applyCentralImpulse(pickRay.direction.scl(impulse));
-
-        var entity = engine.createEntity()
-                .add(new NameComponent("shot " + numShotsSpawned++))
-                .add(modelInstance)
-                .add (physics);
-        engine.addEntity(entity);
-
-        BaseScreen.vec3Pool.free(angles);
-        BaseScreen.vec3Pool.free(position);
+    private void createInitialEntities() {
+        EntityFactory.createFloor(engine);
+        EntityFactory.createOriginAxes(engine);
     }
 
 }

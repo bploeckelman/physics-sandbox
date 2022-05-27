@@ -1,0 +1,199 @@
+package zendo.games.physics.scene.factories;
+
+import com.badlogic.ashley.core.Engine;
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
+import com.badlogic.gdx.math.Vector3;
+import zendo.games.physics.Game;
+import zendo.games.physics.scene.components.NameComponent;
+import zendo.games.physics.scene.components.PhysicsComponent;
+import zendo.games.physics.scene.providers.ModelProvider;
+import zendo.games.physics.scene.systems.ProviderSystem;
+import zendo.games.physics.screens.BaseScreen;
+
+import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
+
+public class EntityFactory {
+
+    // ------------------------------------------------------------------------
+
+    public static Entity createFloor(Engine engine) {
+        return createFloor(engine, true);
+    }
+
+    public static Entity createFloor(Engine engine, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("floor");
+
+            var size = 80f;
+            var node = ModelProvider.Node.patch;
+            var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
+
+            // save the initial transform before scaling for the physics component
+            var transform = modelInstance.transform.cpy();
+            modelInstance.transform.setToScaling(size, 1f, size);
+
+            var collisionShape = providers.collisionShapeProvider
+                    .builder(Type.rect, name.name())
+                    .halfExtents(size / 2, 0, size / 2)
+                    .build();
+            var physics = new PhysicsComponent(0f, transform, collisionShape);
+
+            entity.add(name);
+            entity.add(modelInstance);
+            entity.add(physics);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    // ------------------------------------------------------------------------
+
+    public static Entity createOriginAxes(Engine engine) {
+        return createOriginAxes(engine, true);
+    }
+
+    public static Entity createOriginAxes(Engine engine, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("origin");
+
+            var node = ModelProvider.Node.axes;
+            var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
+
+            entity.add(name);
+            entity.add(modelInstance);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    // ------------------------------------------------------------------------
+
+    private static int numCratesSpawned = 0;
+
+    // TODO - set optional initial position
+
+    public static Entity createCrate(Engine engine) {
+        return createCrate(engine, true);
+    }
+
+    public static Entity createCrate(Engine engine, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("crate " + numCratesSpawned++);
+
+            var node = ModelProvider.Node.cube;
+            var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
+
+            var transform = modelInstance.transform;
+            transform.translate(0, 15, 0);
+
+            var material = modelInstance.getMaterial(node.name());
+            material.get(TextureAttribute.class, TextureAttribute.Diffuse)
+                    .textureDescription.texture = Game.instance.assets.crateTexture;
+
+            var collisionShape = providers.collisionShapeProvider.get(Type.box);
+            var physics = new PhysicsComponent(transform, collisionShape);
+
+            entity.add(name);
+            entity.add(modelInstance);
+            entity.add(physics);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    // ------------------------------------------------------------------------
+
+    private static int numShotsSpawned = 0;
+
+    private static final Vector3 pickEndPoint = new Vector3();
+
+    public static Entity createShot(Engine engine, Camera camera) {
+        return createShot(engine, camera, camera.viewportWidth / 2f, camera.viewportHeight / 2f);
+    }
+
+    public static Entity createShot(Engine engine, Camera camera, float screenX, float screenY) {
+        return createShot(engine, camera, screenX, screenY, true);
+    }
+
+    public static Entity createShot(Engine engine, Camera camera, float screenX, float screenY, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("shot " + numShotsSpawned++);
+
+            // create model instance
+            var node = ModelProvider.Node.sphere;
+            var modelInstance = providers.modelProvider.createModelInstanceComponent(node);
+
+            // modify material texture
+            var material = modelInstance.getMaterial(node.name());
+            material.get(TextureAttribute.class, TextureAttribute.Diffuse)
+                    .textureDescription.texture = Game.instance.assets.metalTexture;
+
+            // set initial transform
+            var scale = 2f;
+            var impulse = 30f;
+            var pickRay = camera.getPickRay(screenX, screenY);
+            pickRay.getEndPoint(pickEndPoint, camera.position.y);
+
+            var angles = BaseScreen.vec3Pool.obtain().setZero();
+            var position = BaseScreen.vec3Pool.obtain().set(
+                    pickRay.origin.x + pickRay.direction.x * scale,
+                    pickRay.origin.y + pickRay.direction.y * scale,
+                    pickRay.origin.z + pickRay.direction.z * scale
+            );
+
+            var transform = modelInstance.transform;
+            transform.setFromEulerAngles(angles.x, angles.y, angles.z);
+            transform.setTranslation(position);
+//            transform.trn(position);
+
+            // setup physics
+            var collisionShape = providers.collisionShapeProvider.get(Type.sphere);
+            var physics = new PhysicsComponent(transform, collisionShape);
+            physics.rigidBody.setUserValue(numShotsSpawned);
+            physics.rigidBody.proceedToTransform(transform);
+            physics.rigidBody.applyCentralImpulse(pickRay.direction.scl(impulse));
+
+            entity.add(name);
+            entity.add(modelInstance);
+            entity.add(physics);
+
+            BaseScreen.vec3Pool.free(angles);
+            BaseScreen.vec3Pool.free(position);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    // ------------------------------------------------------------------------
+
+}
