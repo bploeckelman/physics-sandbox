@@ -8,11 +8,9 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.StringBuilder;
 import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
-import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.utils.ConsoleCommandExecutor;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
@@ -50,24 +48,9 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.right, false);
             font.draw(batch, layout, 0, camera.viewportHeight);
 
-            var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
-            var str = new StringBuilder();
-            str.append("Entities: ").append(String.valueOf(namedEntities.size())).append("\n");
-
-            for (var entity : namedEntities) {
-                var name = ComponentMappers.name.get(entity);
-                str.append(" - ").append(name.name());
-
-                var coord = ComponentMappers.coord2.get(entity);
-                if (coord != null) {
-                    str.append(": ").append(coord.toString());
-                }
-
-                str.append("\n");
-            }
-
-            text = str.toString();
             font = assets.smallFont;
+            var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
+            text = "Entities: " + namedEntities.size();
             layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.left, false);
             font.draw(batch, layout, 0, camera.viewportHeight);
         }
