@@ -18,7 +18,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
 import zendo.games.physics.controllers.CameraController;
 import zendo.games.physics.controllers.TopDownCameraController;
-import zendo.games.physics.sandbox.FreeCameraController;
+import zendo.games.physics.controllers.FreeCameraController;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.Coord2Component;
 import zendo.games.physics.scene.components.NameComponent;

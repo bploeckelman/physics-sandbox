@@ -1,11 +1,11 @@
-package zendo.games.physics.sandbox;
+package zendo.games.physics.controllers;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.IntIntMap;
-import zendo.games.physics.controllers.CameraController;
 
 /**
  * @author Marcus Brummer
@@ -49,6 +49,8 @@ public class FreeCameraController extends CameraController {
         camera.up.set(Vector3.Y);
         camera.lookAt(0f, 0f, 0f);
         camera.update(true);
+        dragX = Gdx.input.getX();
+        dragY = Gdx.input.getY();
         Gdx.input.setCursorCatched(true);
     }
 
@@ -83,14 +85,14 @@ public class FreeCameraController extends CameraController {
         direction.set(camera.direction);
 
         // rotating on the y axis
-        float x = dragX -screenX;
+        float x = dragX - screenX;
         // change this Vector3.y with camera.up if you have a dynamic up.
         camera.rotate(Vector3.Y,x * rotateSpeed);
 
         // rotating on the x and z axis is different
-        float y = (float) Math.sin( (double)(dragY -screenY)/180f);
-        if (Math.abs(camera.direction.y + y * (rotateSpeed*5.0f))< 0.9) {
-            camera.direction.y +=  y * (rotateSpeed*5.0f) ;
+        float y = MathUtils.sin((dragY - screenY) / 180f);
+        if (Math.abs(camera.direction.y + y * (rotateSpeed * 5.0f)) < 0.9) {
+            camera.direction.y +=  y * (rotateSpeed * 5.0f) ;
         }
 
         camera.update();
