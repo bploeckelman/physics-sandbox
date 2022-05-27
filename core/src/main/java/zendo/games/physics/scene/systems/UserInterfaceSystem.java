@@ -52,7 +52,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
             var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
             var str = new StringBuilder();
-            str.append("Entities: " + namedEntities.size() + "\n");
+            str.append("Entities: ").append(String.valueOf(namedEntities.size())).append("\n");
             for (var entity : namedEntities) {
                 var component = ComponentMappers.name.get(entity);
                 str.append(" - ").append(component.name()).append("\n");
