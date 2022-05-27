@@ -6,9 +6,13 @@ import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
@@ -16,6 +20,7 @@ import zendo.games.physics.controllers.CameraController;
 import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.sandbox.FreeCameraController;
 import zendo.games.physics.scene.Scene;
+import zendo.games.physics.scene.components.Coord2Component;
 import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
@@ -42,6 +47,7 @@ public class EditorScreen extends BaseScreen {
     private CameraController cameraController;
     private final OrthographicCamera orthoCamera;
     private final PerspectiveCamera perspectiveCamera;
+    private final EditInfo editInfo;
 
     private final float SPAWN_TIME = 1f;
     private float spawnTimer = SPAWN_TIME;
@@ -77,6 +83,8 @@ public class EditorScreen extends BaseScreen {
         engine.addSystem(userInterfaceSystem);
 
         this.scene = new Scene(engine);
+
+        this.editInfo = new EditInfo();
 
         this.worldCamera = orthoCamera;
         this.cameraController = new TopDownCameraController(worldCamera);
@@ -258,18 +266,96 @@ public class EditorScreen extends BaseScreen {
         switch (button) {
             case Buttons.LEFT -> {
                 if (editInfo.isHolding()) {
-                    // give it a new name and then leave the held entity in the world in its current configuration
-                    editInfo.heldEntity.add(new NameComponent("tile " + componentCount++));
+                    var entity = editInfo.heldEntity;
+
+                    entity.add(new NameComponent("tile " + componentCount++));
+
+                    // TODO - make sure the position is not occupied
+                    // update coord component to new position
+                    var modelInstance = ComponentMappers.modelInstance.get(entity);
+                    var translation = vec3Pool.obtain();
+                    modelInstance.transform.getTranslation(translation);
+                    entity.add(new Coord2Component(
+                            MathUtils.floor(translation.x / EntityFactory.TILE_SIZE),
+                            MathUtils.floor(translation.z / EntityFactory.TILE_SIZE)
+                    ));
+
+                    // restore material
+                    for (var material : modelInstance.materials) {
+                        // remove blending
+                        material.remove(BlendingAttribute.Type);
+
+                        // restore diffuse color
+                        for (var original : editInfo.originalMaterials) {
+                            if (original.id.equals(material.id)) {
+                                material.set(original.get(ColorAttribute.class, ColorAttribute.Diffuse));
+                            }
+                        }
+                    }
+                    editInfo.originalMaterials.clear();
+
+                    // leave the held entity in the world in its current configuration
                     editInfo.releaseEntity();
                 } else {
-                    // TODO - if the current pick tile is already occupied, select it instead
-                    // TODO - calculate tile x,y and pass in to createTile (instead of screenX,Y)
-                    editInfo.heldEntity = EntityFactory.createTile(engine, assets, worldCamera, screenX, screenY);
+                    // find the tile coords on the ground plane for this pick ray
+                    worldCamera.getPickRay(screenX, screenY).getEndPoint(pointerPos, worldCamera.position.y);
+                    var tileX = MathUtils.floor(pointerPos.x / EntityFactory.TILE_SIZE);
+                    var tileZ = MathUtils.floor(pointerPos.z / EntityFactory.TILE_SIZE);
+
+                    // check whether the pick tile is already occupied
+                    var isTileEmpty = true;
+                    var coordEntities = engine.getEntitiesFor(ComponentFamilies.coord2);
+                    for (var entity : coordEntities) {
+                        var coord = ComponentMappers.coord2.get(entity);
+                        if (coord.equals(tileX, tileZ)) {
+                            // select this tile instead of creating a new one
+                            editInfo.heldEntity = entity;
+                            isTileEmpty = false;
+                            break;
+                        }
+                    }
+
+                    if (isTileEmpty) {
+                        editInfo.heldEntity = EntityFactory.createTile(engine, assets, tileX, tileZ);
+                    }
+
+                    // set to selection material
+                    if (editInfo.isHolding()) {
+                        var entity = editInfo.heldEntity;
+                        var modelInstance = ComponentMappers.modelInstance.get(entity);
+
+                        // save original materials
+                        editInfo.originalMaterials.clear();
+                        for (var material : modelInstance.materials) {
+                            editInfo.originalMaterials.add(material.copy());
+                        }
+
+                        // modify held entity materials
+                        for (var material : modelInstance.materials) {
+                            material.get(ColorAttribute.class, ColorAttribute.Diffuse).color.set(Color.WHITE);
+                            material.set(new BlendingAttribute(0.75f));
+                        }
+                    }
                 }
                 return true;
             }
             case Buttons.RIGHT -> {
                 if (editInfo.isHolding()) {
+                    // restore material
+                    var modelInstance = ComponentMappers.modelInstance.get(editInfo.heldEntity);
+                    for (var material : modelInstance.materials) {
+                        // remove blending
+                        material.remove(BlendingAttribute.Type);
+
+                        // restore diffuse color
+                        for (var original : editInfo.originalMaterials) {
+                            if (original.id.equals(material.id)) {
+                                material.set(original.get(ColorAttribute.class, ColorAttribute.Diffuse));
+                            }
+                        }
+                    }
+                    editInfo.originalMaterials.clear();
+
                     // delete the entity from the world before releasing it
                     engine.removeEntity(editInfo.heldEntity);
                     editInfo.releaseEntity();
@@ -286,6 +372,7 @@ public class EditorScreen extends BaseScreen {
         final Quaternion rotation = new Quaternion();
 
         Entity heldEntity = null;
+        Array<Material> originalMaterials = new Array<>();
 
         public boolean isHolding() {
             return heldEntity != null;
@@ -294,7 +381,6 @@ public class EditorScreen extends BaseScreen {
             heldEntity = null;
         }
     }
-    private final EditInfo editInfo = new EditInfo();
 
     private void rotateEntityCW(Entity entity) {
         // update model transform

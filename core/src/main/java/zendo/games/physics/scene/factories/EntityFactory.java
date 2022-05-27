@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import zendo.games.physics.Assets;
 import zendo.games.physics.Game;
+import zendo.games.physics.scene.components.Coord2Component;
 import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.PhysicsComponent;
 import zendo.games.physics.scene.providers.ModelProvider;
@@ -202,6 +203,9 @@ public class EntityFactory {
 
     private static int numTiles = 0;
 
+    // TODO - find a better place for this
+    public static final float TILE_SIZE = 10f;
+
     // TODO - pass in the tile coord to create at instead of calculating internally
     //        make a helper that converts between screenX,Y and tileX,Y
 
@@ -226,8 +230,13 @@ public class EntityFactory {
                     .getEndPoint(pickEndPoint, camera.position.y);
 
             var tileSize = 10f;
-            var x = MathUtils.floor(pickEndPoint.x / tileSize) * tileSize;
-            var z = MathUtils.floor(pickEndPoint.z / tileSize) * tileSize;
+            var coord = new Coord2Component(
+                    MathUtils.floor(pickEndPoint.x / tileSize),
+                    MathUtils.floor(pickEndPoint.z / tileSize)
+            );
+
+            var x = coord.x() * tileSize;
+            var z = coord.y() * tileSize;
             var offset = tileSize / 2f;
             var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
             var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
@@ -268,6 +277,76 @@ public class EntityFactory {
             physics.rigidBody.setWorldTransform(transform);
 
             entity.add(name);
+            entity.add(modelInstance);
+            entity.add(physics);
+
+            vec3Pool.free(position);
+            vec3Pool.free(scaling);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    public static Entity createTile(Engine engine, Assets assets, int tileX, int tileY) {
+        return createTile(engine, assets, tileX, tileY, true);
+    }
+
+    public static Entity createTile(Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+        var vec3Pool = BaseScreen.vec3Pool;
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("Held Tile");
+            var coord = new Coord2Component(tileX, tileY);
+
+            var offset = TILE_SIZE / 2f;
+            var x = coord.x() * TILE_SIZE;
+            var z = coord.y() * TILE_SIZE;
+            var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
+            var scaling = vec3Pool.obtain().set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+            // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
+
+            // create the model instance
+            var fileName = "start.g3db"; // big
+//            var fileName = "tile-start.g3db"; // small
+//            var fileName = "straight.g3db";   // small
+            var models = providers.modelProvider;
+            var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
+            Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
+
+            var modelInstance = models.createModelInstanceComponent(fileName);
+            modelInstance.transform.setToTranslation(position);
+
+            // setup physics
+            var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
+            var transform = modelInstance.transform.cpy();
+            var collisionShape = providers.collisionShapeProvider
+                    .builder(Type.custom, key).model(model).build();
+
+            // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
+            collisionShape.setLocalScaling(scaling);
+
+            var physics = new PhysicsComponent(0f, transform, collisionShape);
+
+            // manage the rigidBody translation manually
+            // instead of letting bullet do it with the motion state
+            // TODO - make things like this into construction parameters
+            physics.rigidBody.setMotionState(null);
+
+            // set initial position and orientation of physics body
+            transform = physics.rigidBody.getWorldTransform();
+            // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
+            transform.rotate(Vector3.X, -90f);
+            physics.rigidBody.setWorldTransform(transform);
+
+            entity.add(name);
+            entity.add(coord);
             entity.add(modelInstance);
             entity.add(physics);
 
