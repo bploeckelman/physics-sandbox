@@ -3,14 +3,19 @@ package zendo.games.physics.scene.factories;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
+import zendo.games.physics.Assets;
 import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.PhysicsComponent;
 import zendo.games.physics.scene.providers.ModelProvider;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.screens.BaseScreen;
+
+import java.util.Objects;
 
 import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
 
@@ -170,7 +175,6 @@ public class EntityFactory {
             var transform = modelInstance.transform;
             transform.setFromEulerAngles(angles.x, angles.y, angles.z);
             transform.setTranslation(position);
-//            transform.trn(position);
 
             // setup physics
             var collisionShape = providers.collisionShapeProvider.get(Type.sphere);
@@ -185,6 +189,90 @@ public class EntityFactory {
 
             BaseScreen.vec3Pool.free(angles);
             BaseScreen.vec3Pool.free(position);
+        }
+
+        if (addToEngine) {
+            engine.addEntity(entity);
+        }
+
+        return entity;
+    }
+
+    // ------------------------------------------------------------------------
+
+    private static int numTiles = 0;
+
+    // TODO - pass in the tile coord to create at instead of calculating internally
+    //        make a helper that converts between screenX,Y and tileX,Y
+
+    public static Entity createTile(Engine engine, Assets assets, Camera camera) {
+        return createTile(engine, assets, camera, camera.viewportWidth / 2f, camera.viewportHeight / 2f);
+    }
+
+    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY) {
+        return createTile(engine, assets, camera, screenX, screenY, true);
+    }
+
+    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY, boolean addToEngine) {
+        var providers = engine.getSystem(ProviderSystem.class);
+        var vec3Pool = BaseScreen.vec3Pool;
+
+        var entity = engine.createEntity();
+        {
+            var name = new NameComponent("Held Tile");
+
+            // create a new entity at the picked coordinate
+            camera.getPickRay(screenX, screenY)
+                    .getEndPoint(pickEndPoint, camera.position.y);
+
+            var tileSize = 10f;
+            var x = MathUtils.floor(pickEndPoint.x / tileSize) * tileSize;
+            var z = MathUtils.floor(pickEndPoint.z / tileSize) * tileSize;
+            var offset = tileSize / 2f;
+            var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
+            var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
+
+            // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
+
+            // create the model instance
+            var fileName = "start.g3db"; // big
+//            var fileName = "tile-start.g3db"; // small
+//            var fileName = "straight.g3db";   // small
+            var models = providers.modelProvider;
+            var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
+            Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
+
+            var modelInstance = models.createModelInstanceComponent(fileName);
+            modelInstance.transform.setToTranslation(position);
+
+            // setup physics
+            var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
+            var transform = modelInstance.transform.cpy();
+            var collisionShape = providers.collisionShapeProvider
+                    .builder(Type.custom, key).model(model).build();
+
+            // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
+            collisionShape.setLocalScaling(scaling);
+
+            var physics = new PhysicsComponent(0f, transform, collisionShape);
+
+            // manage the rigidBody translation manually
+            // instead of letting bullet do it with the motion state
+            // TODO - make things like this into construction parameters
+            physics.rigidBody.setMotionState(null);
+
+            // set initial position and orientation of physics body
+            transform = physics.rigidBody.getWorldTransform();
+            // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
+            transform.rotate(Vector3.X, -90f);
+            physics.rigidBody.setWorldTransform(transform);
+
+            entity.add(name);
+            entity.add(modelInstance);
+            entity.add(physics);
+
+            vec3Pool.free(position);
+            vec3Pool.free(scaling);
         }
 
         if (addToEngine) {

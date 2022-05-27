@@ -6,7 +6,6 @@ import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
@@ -18,7 +17,6 @@ import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.sandbox.FreeCameraController;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.NameComponent;
-import zendo.games.physics.scene.components.PhysicsComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.factories.EntityFactory;
@@ -27,11 +25,8 @@ import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
 import zendo.games.physics.scene.systems.UserInterfaceSystem;
 
-import java.util.Objects;
-
 import static com.badlogic.gdx.Input.Buttons;
 import static com.badlogic.gdx.Input.Keys;
-import static zendo.games.physics.scene.providers.CollisionShapeProvider.Type;
 
 public class EditorScreen extends BaseScreen {
 
@@ -264,66 +259,12 @@ public class EditorScreen extends BaseScreen {
             case Buttons.LEFT -> {
                 if (editInfo.isHolding()) {
                     // give it a new name and then leave the held entity in the world in its current configuration
-                    // TODO - store a tentative name on the thing on creation
                     editInfo.heldEntity.add(new NameComponent("tile " + componentCount++));
                     editInfo.releaseEntity();
                 } else {
-                    // create a new entity in the clicked tile
-                    worldCamera.getPickRay(screenX, screenY)
-                               .getEndPoint(pointerPos, worldCamera.position.y);
-
                     // TODO - if the current pick tile is already occupied, select it instead
-
-                    var tileSize = 10f;
-                    var x = MathUtils.floor(pointerPos.x / tileSize) * tileSize;
-                    var z = MathUtils.floor(pointerPos.z / tileSize) * tileSize;
-                    var offset = tileSize / 2f;
-                    var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
-                    var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
-
-                    // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
-                    // create the model instance
-                    var fileName = "start.g3db"; // big
-//                    var fileName = "tile-start.g3db"; // small
-//                    var fileName = "straight.g3db";   // small
-                    var models = providerSystem.modelProvider;
-                    var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
-                    Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
-
-                    var instance = models.createModelInstanceComponent(fileName);
-                    instance.transform.setToTranslation(position);
-//                    instance.transform.setToTranslationAndScaling(position, scaling);
-
-                    // create the physics body
-                    var key = fileName.substring(1, fileName.indexOf('.')) + (componentCount + 1);
-                    var shape = providerSystem.collisionShapeProvider
-                            .builder(Type.custom, key).model(model).build();
-                    // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
-                    shape.setLocalScaling(scaling);
-
-                    var physics = new PhysicsComponent(0f, instance.transform, shape);
-
-                    // manage the rigidBody translation manually
-                    // instead of letting bullet do it with the motion state
-                    // TODO - make things like this into construction parameters
-                    physics.rigidBody.setMotionState(null);
-
-                    // set initial position and orientation of physics body
-                    var transform = physics.rigidBody.getWorldTransform();
-                    // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
-                    transform.rotate(Vector3.X, -90f);
-                    physics.rigidBody.setWorldTransform(transform);
-
-                    var entity = engine.createEntity()
-                            .add(new NameComponent("Held Tile"))
-                            .add(instance)
-                            .add(physics);
-                    engine.addEntity(entity);
-
-                    editInfo.heldEntity = entity;
-
-                    vec3Pool.free(position);
-                    vec3Pool.free(scaling);
+                    // TODO - calculate tile x,y and pass in to createTile (instead of screenX,Y)
+                    editInfo.heldEntity = EntityFactory.createTile(engine, assets, worldCamera, screenX, screenY);
                 }
                 return true;
             }
@@ -366,6 +307,7 @@ public class EditorScreen extends BaseScreen {
         transform.getTranslation(editInfo.translation);
         transform.getRotation(editInfo.rotation);
         var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+
         transform.idt()
                 .rotate(Vector3.Y, yAngle - 90f)
                 .rotate(Vector3.X, -90f)
@@ -385,6 +327,7 @@ public class EditorScreen extends BaseScreen {
         transform.getTranslation(editInfo.translation);
         transform.getRotation(editInfo.rotation);
         var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+
         transform.idt()
                 .rotate(Vector3.Y, yAngle + 90f)
                 .rotate(Vector3.X, -90f)
