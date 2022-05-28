@@ -11,6 +11,7 @@ import com.badlogic.gdx.utils.Disposable;
 import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
+import zendo.games.physics.screens.EditorScreen;
 import zendo.games.physics.utils.ConsoleCommandExecutor;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
@@ -21,14 +22,14 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public final GUIConsole console;
     public final ConsoleCommandExecutor commandExecutor;
 
-    public UserInterfaceSystem(Assets assets, Engine engine) {
+    public UserInterfaceSystem(EditorScreen screen, Assets assets, Engine engine) {
         this.assets = assets;
         this.engine = engine;
         this.console = new GUIConsole();
         console.setPosition(0, 0);
         console.setSizePercent(100, 20);
 
-        this.commandExecutor = new ConsoleCommandExecutor();
+        this.commandExecutor = new ConsoleCommandExecutor(screen);
         console.setCommandExecutor(commandExecutor);
     }
 

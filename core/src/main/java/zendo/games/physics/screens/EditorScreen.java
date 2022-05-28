@@ -17,8 +17,8 @@ import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import zendo.games.physics.Config;
 import zendo.games.physics.controllers.CameraController;
-import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.controllers.FreeCameraController;
+import zendo.games.physics.controllers.TopDownCameraController;
 import zendo.games.physics.scene.Scene;
 import zendo.games.physics.scene.components.Coord2Component;
 import zendo.games.physics.scene.components.NameComponent;
@@ -37,6 +37,9 @@ import static com.badlogic.gdx.Input.Keys;
 public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
+
+    public enum Mode { edit, noclip }
+    private Mode mode;
 
     private final Scene scene;
 
@@ -82,7 +85,7 @@ public class EditorScreen extends BaseScreen {
         engine.addEntityListener(ComponentFamilies.physics, physicsSystem);
         engine.addSystem(physicsSystem);
 
-        this.userInterfaceSystem = new UserInterfaceSystem(assets, engine);
+        this.userInterfaceSystem = new UserInterfaceSystem(this, assets, engine);
         // TODO - setup ui system as entity listener once there are some ui components
         engine.addSystem(userInterfaceSystem);
 
@@ -90,13 +93,7 @@ public class EditorScreen extends BaseScreen {
 
         this.editInfo = new EditInfo();
 
-        this.worldCamera = orthoCamera;
-        this.cameraController = new TopDownCameraController(worldCamera);
-        var mux = new InputMultiplexer(this, cameraController);
-        Gdx.input.setInputProcessor(mux);
-
-        // re-add the in-game console to the input multiplexer
-        userInterfaceSystem.console.resetInputProcessing();
+        setMode(Mode.edit);
     }
 
     @Override
@@ -151,17 +148,35 @@ public class EditorScreen extends BaseScreen {
         userInterfaceSystem.render(windowCamera, assets.batch);
     }
 
-    private void toggleCamera() {
-        if (cameraController instanceof TopDownCameraController) {
+    private void setMode(Mode mode) {
+        this.mode = mode;
+        if (mode == Mode.noclip) {
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
-        } else if (cameraController instanceof FreeCameraController) {
+        } else {
             worldCamera = orthoCamera;
             cameraController = new TopDownCameraController(worldCamera);
         }
+
         var mux = new InputMultiplexer(this, cameraController);
         Gdx.input.setInputProcessor(mux);
+        // restore the in-game console to the input multiplexer
+        engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
+    }
 
+    private void toggleMode() {
+        if (mode == Mode.noclip) {
+            mode = Mode.edit;
+            worldCamera = orthoCamera;
+            cameraController = new TopDownCameraController(worldCamera);
+        } else {
+            mode = Mode.noclip;
+            worldCamera = perspectiveCamera;
+            cameraController = new FreeCameraController(worldCamera);
+        }
+
+        var mux = new InputMultiplexer(this, cameraController);
+        Gdx.input.setInputProcessor(mux);
         // restore the in-game console to the input multiplexer
         engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
     }
@@ -178,7 +193,7 @@ public class EditorScreen extends BaseScreen {
                 return true;
             }
             case Keys.TAB -> {
-                toggleCamera();
+                toggleMode();
                 return true;
             }
             case Keys.NUM_1 -> {

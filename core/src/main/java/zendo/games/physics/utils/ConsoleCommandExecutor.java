@@ -6,10 +6,17 @@ import com.strongjoshua.console.annotation.ConsoleDoc;
 import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
+import zendo.games.physics.screens.EditorScreen;
 
 public class ConsoleCommandExecutor extends CommandExecutor {
 
+    private final EditorScreen screen;
+
     public boolean isObjectSpawningEnabled = false;
+
+    public ConsoleCommandExecutor(EditorScreen screen) {
+        this.screen = screen;
+    }
 
     @ConsoleDoc(description = "Toggles whether to repeatedly spawn objects or not.")
     public final void spawn() {
