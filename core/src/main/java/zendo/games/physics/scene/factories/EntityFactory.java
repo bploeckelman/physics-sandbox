@@ -311,38 +311,45 @@ public class EntityFactory {
             var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
             var scaling = vec3Pool.obtain().set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
-            // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
-
             // create the model instance
-            var fileName = "start.g3db"; // big
-//            var fileName = "tile-start.g3db"; // small
-//            var fileName = "straight.g3db";   // small
+            var fileName = "minigolf/block.g3dj";
             var models = providers.modelProvider;
             var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
             Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
 
+            // set the initial position and orientation of the model instance
             var modelInstance = models.createModelInstanceComponent(fileName);
             modelInstance.transform.setToTranslation(position);
 
+            // NOTE - scaling needs to be applied to the collision shape as well as the model instance
+            //   but scaling the model instance and then using that to build the collision shape
+            //   breaks collisions (due to not explicitly calling btCollisionShape.setLocalScaling()?)
+            //   so just use the position to create the collision shape then scale the model instance separately
+            var transform = modelInstance.transform.cpy();
+            modelInstance.transform.scale(scaling.x, scaling.y, scaling.z);
+
             // setup physics
             var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
-            var transform = modelInstance.transform.cpy();
             var collisionShape = providers.collisionShapeProvider
                     .builder(Type.custom, key).model(model).build();
 
-            // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
+            // make sure collision shape has correct scale
             collisionShape.setLocalScaling(scaling);
 
             var physics = new PhysicsComponent(0f, transform, collisionShape);
 
+            // TODO - make things like this into construction parameters of the physics component
             // manage the rigidBody translation manually
             // instead of letting bullet do it with the motion state
-            // TODO - make things like this into construction parameters
             physics.rigidBody.setMotionState(null);
 
+            // NOTE - exporting a model as y-up orients the model instance correctly,
+            //  but the collision shape built from the model's triangles is still oriented as z-up
+            //  so either the physics body needs to be re-oriented or both physics and model instance do
+            //  easier to do the physics body separately in case we don't need a physics body
+            //  for any particular model
             // set initial position and orientation of physics body
             transform = physics.rigidBody.getWorldTransform();
-            // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
             transform.rotate(Vector3.X, -90f);
             physics.rigidBody.setWorldTransform(transform);
 

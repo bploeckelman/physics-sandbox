@@ -131,6 +131,9 @@ public class Assets implements Disposable {
             mgr.load("start.g3db", Model.class);
             mgr.load("straight.g3db", Model.class);
             mgr.load("tile-start.g3db", Model.class);
+
+            // TODO - testing blender export plugin
+            mgr.load("minigolf/block.g3dj", Model.class);
         }
 
         if (load == Load.SYNC) {
