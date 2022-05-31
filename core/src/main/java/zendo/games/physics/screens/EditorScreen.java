@@ -160,7 +160,7 @@ public class EditorScreen extends BaseScreen {
             cameraController = new TopDownCameraController(worldCamera);
         }
 
-        var mux = new InputMultiplexer(this, cameraController);
+        var mux = new InputMultiplexer(userInterfaceSystem.getInputProcessor(), this, cameraController);
         Gdx.input.setInputProcessor(mux);
         // restore the in-game console to the input multiplexer
         engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
@@ -177,7 +177,7 @@ public class EditorScreen extends BaseScreen {
             cameraController = new FreeCameraController(worldCamera);
         }
 
-        var mux = new InputMultiplexer(this, cameraController);
+        var mux = new InputMultiplexer(userInterfaceSystem.getInputProcessor(), this, cameraController);
         Gdx.input.setInputProcessor(mux);
         // restore the in-game console to the input multiplexer
         engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
@@ -194,8 +194,12 @@ public class EditorScreen extends BaseScreen {
                 Gdx.app.exit();
                 return true;
             }
-            case Keys.TAB -> {
+            case Keys.ENTER -> {
                 toggleMode();
+                return true;
+            }
+            case Keys.TAB -> {
+                userInterfaceSystem.toggleSettings();
                 return true;
             }
             case Keys.NUM_1 -> {

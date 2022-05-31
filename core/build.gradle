@@ -13,5 +13,7 @@ dependencies {
 	api "space.earlygrey:simple-graphs:$simpleGraphsVersion"
 	api "org.mini2Dx:universal-tween-engine:$tweenEngineVersion"
 	api "com.strongjoshua:libgdx-inGameConsole:$inGameConsoleVersion"
+	implementation "com.kotcrab.vis:vis-ui:$visuiVersion"
+	implementation "com.github.raeleus.TenPatch:tenpatch:$tenpatchVersion"
 	annotationProcessor "org.projectlombok:lombok:$lombokVersion"
 }

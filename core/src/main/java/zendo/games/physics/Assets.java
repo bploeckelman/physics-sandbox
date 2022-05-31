@@ -16,6 +16,8 @@ import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
@@ -54,6 +56,12 @@ public class Assets implements Disposable {
         dreamy, heart, pixelize, radial, ripple, starwars, stereo
     }
     public ObjectMap<Transition, ShaderProgram> transitionShaders;
+
+    public enum Patch {
+        debug, panel, metal, glass, glass_green, glass_yellow, glass_dim, glass_active;
+        public NinePatch ninePatch;
+        public NinePatchDrawable drawable;
+    }
 
     public Assets() {
         this(Load.SYNC);
@@ -113,7 +121,8 @@ public class Assets implements Disposable {
 
         mgr = new AssetManager();
         {
-//            mgr.load("sprites/sprites.atlas", TextureAtlas.class);
+            mgr.load("sprites/sprites.atlas", TextureAtlas.class);
+            mgr.load("gui/uiskin.json", Skin.class);
 
             // textures ---------------------------------------------
             var param = new TextureLoader.TextureParameter();
@@ -188,12 +197,31 @@ public class Assets implements Disposable {
         if (!mgr.update()) return mgr.getProgress();
         if (initialized) return 1;
 
-//        atlas = mgr.get("sprites/sprites.atlas");
+        atlas = mgr.get("sprites/sprites.atlas");
 
         libgdxTexture = mgr.get("libgdx.png", Texture.class);
         metalTexture = mgr.get("metal.png", Texture.class);
         crateTexture = mgr.get("crate.png", Texture.class);
         prototypeGridOrange = mgr.get("prototype-grid-orange-lighter.png", Texture.class);
+
+        // initialize patch values
+        Patch.debug.ninePatch        = new NinePatch(atlas.findRegion("ninepatch/debug"), 2, 2, 2, 2);
+        Patch.panel.ninePatch        = new NinePatch(atlas.findRegion("ninepatch/panel"), 15, 15, 15, 15);
+        Patch.glass.ninePatch        = new NinePatch(atlas.findRegion("ninepatch/glass"), 8, 8, 8, 8);
+        Patch.glass_green.ninePatch  = new NinePatch(atlas.findRegion("ninepatch/glass-green"), 8, 8, 8, 8);
+        Patch.glass_yellow.ninePatch = new NinePatch(atlas.findRegion("ninepatch/glass-yellow"), 8, 8, 8, 8);
+        Patch.glass_dim.ninePatch    = new NinePatch(atlas.findRegion("ninepatch/glass-dim"), 8, 8, 8, 8);
+        Patch.glass_active.ninePatch = new NinePatch(atlas.findRegion("ninepatch/glass-active"), 8, 8, 8, 8);
+        Patch.metal.ninePatch        = new NinePatch(atlas.findRegion("ninepatch/metal"), 12, 12, 12, 12);
+
+        Patch.debug.drawable        = new NinePatchDrawable(Patch.debug.ninePatch);
+        Patch.panel.drawable        = new NinePatchDrawable(Patch.panel.ninePatch);
+        Patch.glass.drawable        = new NinePatchDrawable(Patch.glass.ninePatch);
+        Patch.glass_green.drawable  = new NinePatchDrawable(Patch.glass_green.ninePatch);
+        Patch.glass_yellow.drawable = new NinePatchDrawable(Patch.glass_yellow.ninePatch);
+        Patch.glass_dim.drawable    = new NinePatchDrawable(Patch.glass_dim.ninePatch);
+        Patch.glass_active.drawable = new NinePatchDrawable(Patch.glass_active.ninePatch);
+        Patch.metal.drawable        = new NinePatchDrawable(Patch.metal.ninePatch);
 
         String defaultVertexPath = "shaders/default.vert";
         {
