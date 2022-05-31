@@ -25,6 +25,7 @@ import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.factories.EntityFactory;
+import zendo.games.physics.scene.packs.MinigolfModels;
 import zendo.games.physics.scene.systems.PhysicsSystem;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.scene.systems.RenderSystem;
@@ -57,7 +58,8 @@ public class EditorScreen extends BaseScreen {
     private final float SPAWN_TIME = 0.5f;
     private float spawnTimer = SPAWN_TIME;
     private float angleAccum = 0f;
-    private float amplitude = 0f;
+
+    private MinigolfModels activeModel = MinigolfModels.block;
 
     public EditorScreen() {
         var fov = 67f;
@@ -115,7 +117,7 @@ public class EditorScreen extends BaseScreen {
 
         if (userInterfaceSystem.commandExecutor.isObjectSpawningEnabled) {
             angleAccum += delta;
-            amplitude = Calc.sin_deg_xform(angleAccum, 0f, 20f, 2f, 0f);
+            var amplitude = Calc.sin_deg_xform(angleAccum, 0f, 20f, 2f, 0f);
             spawnPosition.x = Calc.sin_deg_xform(angleAccum, 0f, amplitude, 20f, 0f);
             spawnPosition.z = Calc.cos_deg_xform(angleAccum, 0f, amplitude, 20f, 0f);
 
@@ -246,6 +248,19 @@ public class EditorScreen extends BaseScreen {
     }
 
     @Override
+    public boolean scrolled(float amountX, float amountY) {
+        var dir = Calc.sign(amountY);
+        if (dir > 0) {
+            activeModel = activeModel.next();
+            return true;
+        } else if (dir < 0) {
+            activeModel = activeModel.prev();
+            return true;
+        }
+        return scrolled(amountX, amountY);
+    }
+
+    @Override
     public boolean mouseMoved(int screenX, int screenY) {
         if (worldCamera instanceof OrthographicCamera && editInfo.isHolding()) {
             worldCamera.getPickRay(screenX, screenY)
@@ -340,7 +355,7 @@ public class EditorScreen extends BaseScreen {
                     }
 
                     if (isTileEmpty) {
-                        editInfo.heldEntity = EntityFactory.createTile(engine, assets, tileX, tileZ);
+                        editInfo.heldEntity = EntityFactory.createTile(activeModel.key(), engine, assets, tileX, tileZ);
                     }
 
                     // set to selection material

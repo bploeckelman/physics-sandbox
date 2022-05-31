@@ -5,7 +5,6 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import zendo.games.physics.Assets;
 import zendo.games.physics.Game;
@@ -207,96 +206,95 @@ public class EntityFactory {
     // TODO - find a better place for this
     public static final float TILE_SIZE = 10f;
 
-    // TODO - pass in the tile coord to create at instead of calculating internally
-    //        make a helper that converts between screenX,Y and tileX,Y
+    // TODO - make a helper that converts between screenX,Y and tileX,Y
 
-    public static Entity createTile(Engine engine, Assets assets, Camera camera) {
-        return createTile(engine, assets, camera, camera.viewportWidth / 2f, camera.viewportHeight / 2f);
+//    public static Entity createTile(Engine engine, Assets assets, Camera camera) {
+//        return createTile(engine, assets, camera, camera.viewportWidth / 2f, camera.viewportHeight / 2f);
+//    }
+//
+//    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY) {
+//        return createTile(engine, assets, camera, screenX, screenY, true);
+//    }
+//
+//    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY, boolean addToEngine) {
+//        var providers = engine.getSystem(ProviderSystem.class);
+//        var vec3Pool = BaseScreen.vec3Pool;
+//
+//        var entity = engine.createEntity();
+//        {
+//            var name = new NameComponent("Held Tile");
+//
+//            // create a new entity at the picked coordinate
+//            camera.getPickRay(screenX, screenY)
+//                    .getEndPoint(pickEndPoint, camera.position.y);
+//
+//            var tileSize = 10f;
+//            var coord = new Coord2Component(
+//                    MathUtils.floor(pickEndPoint.x / tileSize),
+//                    MathUtils.floor(pickEndPoint.z / tileSize)
+//            );
+//
+//            var x = coord.x() * tileSize;
+//            var z = coord.y() * tileSize;
+//            var offset = tileSize / 2f;
+//            var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
+//            var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
+//
+//            // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
+//
+//            // create the model instance
+//            var fileName = "start.g3db"; // big
+////            var fileName = "tile-start.g3db"; // small
+////            var fileName = "straight.g3db";   // small
+//            var models = providers.modelProvider;
+//            var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
+//            Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
+//
+//            var modelInstance = models.createModelInstanceComponent(fileName);
+//            modelInstance.transform.setToTranslation(position);
+//
+//            // setup physics
+//            var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
+//            var transform = modelInstance.transform.cpy();
+//            var collisionShape = providers.collisionShapeProvider
+//                    .builder(Type.custom, key).model(model).build();
+//
+//            // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
+//            collisionShape.setLocalScaling(scaling);
+//
+//            var physics = new PhysicsComponent(0f, transform, collisionShape);
+//
+//            // manage the rigidBody translation manually
+//            // instead of letting bullet do it with the motion state
+//            // TODO - make things like this into construction parameters
+//            physics.rigidBody.setMotionState(null);
+//
+//            // set initial position and orientation of physics body
+//            transform = physics.rigidBody.getWorldTransform();
+//            // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
+//            transform.rotate(Vector3.X, -90f);
+//            physics.rigidBody.setWorldTransform(transform);
+//
+//            entity.add(name);
+//            entity.add(modelInstance);
+//            entity.add(physics);
+//
+//            vec3Pool.free(position);
+//            vec3Pool.free(scaling);
+//        }
+//
+//        if (addToEngine) {
+//            engine.addEntity(entity);
+//        }
+//
+//        return entity;
+//    }
+
+    public static Entity createTile(String modelKey, Engine engine, Assets assets, int tileX, int tileY) {
+        return createTile(modelKey, engine, assets, tileX, tileY, true);
     }
 
-    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY) {
-        return createTile(engine, assets, camera, screenX, screenY, true);
-    }
-
-    public static Entity createTile(Engine engine, Assets assets, Camera camera, float screenX, float screenY, boolean addToEngine) {
-        var providers = engine.getSystem(ProviderSystem.class);
-        var vec3Pool = BaseScreen.vec3Pool;
-
-        var entity = engine.createEntity();
-        {
-            var name = new NameComponent("Held Tile");
-
-            // create a new entity at the picked coordinate
-            camera.getPickRay(screenX, screenY)
-                    .getEndPoint(pickEndPoint, camera.position.y);
-
-            var tileSize = 10f;
-            var coord = new Coord2Component(
-                    MathUtils.floor(pickEndPoint.x / tileSize),
-                    MathUtils.floor(pickEndPoint.z / tileSize)
-            );
-
-            var x = coord.x() * tileSize;
-            var z = coord.y() * tileSize;
-            var offset = tileSize / 2f;
-            var position = vec3Pool.obtain().set(offset + x, 0, offset + z);
-            var scaling = vec3Pool.obtain().set(tileSize, tileSize, tileSize);
-
-            // TODO - export models with a uniform scale and orientation so scaling can apply uniformly
-
-            // create the model instance
-            var fileName = "start.g3db"; // big
-//            var fileName = "tile-start.g3db"; // small
-//            var fileName = "straight.g3db";   // small
-            var models = providers.modelProvider;
-            var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
-            Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
-
-            var modelInstance = models.createModelInstanceComponent(fileName);
-            modelInstance.transform.setToTranslation(position);
-
-            // setup physics
-            var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
-            var transform = modelInstance.transform.cpy();
-            var collisionShape = providers.collisionShapeProvider
-                    .builder(Type.custom, key).model(model).build();
-
-            // TODO - depends on model size since bullet's bvhTriangleMeshShape seems to have the wrong scale?
-            collisionShape.setLocalScaling(scaling);
-
-            var physics = new PhysicsComponent(0f, transform, collisionShape);
-
-            // manage the rigidBody translation manually
-            // instead of letting bullet do it with the motion state
-            // TODO - make things like this into construction parameters
-            physics.rigidBody.setMotionState(null);
-
-            // set initial position and orientation of physics body
-            transform = physics.rigidBody.getWorldTransform();
-            // TODO - model should be exported as y-up, though there might be a bullet quirk that ignores that
-            transform.rotate(Vector3.X, -90f);
-            physics.rigidBody.setWorldTransform(transform);
-
-            entity.add(name);
-            entity.add(modelInstance);
-            entity.add(physics);
-
-            vec3Pool.free(position);
-            vec3Pool.free(scaling);
-        }
-
-        if (addToEngine) {
-            engine.addEntity(entity);
-        }
-
-        return entity;
-    }
-
-    public static Entity createTile(Engine engine, Assets assets, int tileX, int tileY) {
-        return createTile(engine, assets, tileX, tileY, true);
-    }
-
-    public static Entity createTile(Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
+    public static Entity createTile(String modelKey, Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
         var providers = engine.getSystem(ProviderSystem.class);
         var vec3Pool = BaseScreen.vec3Pool;
 
@@ -312,59 +310,12 @@ public class EntityFactory {
             var scaling = vec3Pool.obtain().set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
             // create the model instance
-            var fileName = "minigolf/block.g3dj";
-//            var fileName = "minigolf/bump-down.g3dj";
-//            var fileName = "minigolf/bump-down-walls.g3dj";
-//            var fileName = "minigolf/bump-up.g3dj";
-//            var fileName = "minigolf/bump-up-walls.g3dj";
-//            var fileName = "minigolf/castle.g3dj";
-//            var fileName = "minigolf/corner.g3dj";
-//            var fileName = "minigolf/corner-inner.g3dj";
-//            var fileName = "minigolf/corner-square-a.g3dj";
-//            var fileName = "minigolf/crest.g3dj";
-//            var fileName = "minigolf/end.g3dj";
-//            var fileName = "minigolf/gap.g3dj";
-//            var fileName = "minigolf/hill-corner.g3dj";
-//            var fileName = "minigolf/hill-round.g3dj";
-//            var fileName = "minigolf/hill-square.g3dj";
-//            var fileName = "minigolf/hole-open.g3dj";
-//            var fileName = "minigolf/hole-round.g3dj";
-//            var fileName = "minigolf/hole-square.g3dj";
-//            var fileName = "minigolf/narrow-block.g3dj";
-//            var fileName = "minigolf/narrow-round.g3dj";
-//            var fileName = "minigolf/narrow-square.g3dj";
-//            var fileName = "minigolf/obstacle-block.g3dj";
-//            var fileName = "minigolf/obstacle-diamond.g3dj";
-//            var fileName = "minigolf/obstacle-triangle.g3dj";
-//            var fileName = "minigolf/open.g3dj";
-//            var fileName = "minigolf/ramp-a.g3dj";
-//            var fileName = "minigolf/ramp-b.g3dj";
-//            var fileName = "minigolf/ramp-c.g3dj";
-//            var fileName = "minigolf/ramp-d.g3dj";
-//            var fileName = "minigolf/ramp-sharp.g3dj";
-//            var fileName = "minigolf/ramp-square.g3dj";
-//            var fileName = "minigolf/round-corner-a.g3dj";
-//            var fileName = "minigolf/round-corner-b.g3dj";
-//            var fileName = "minigolf/round-corner-c.g3dj";
-//            var fileName = "minigolf/side.g3dj";
-//            var fileName = "minigolf/split.g3dj";
-//            var fileName = "minigolf/split-t.g3dj";
-//            var fileName = "minigolf/split-walls-to-open.g3dj";
-//            var fileName = "minigolf/start.g3dj";
-//            var fileName = "minigolf/straight.g3dj";
-//            var fileName = "minigolf/tunnel-double.g3dj";
-//            var fileName = "minigolf/tunnel-narrow.g3dj";
-//            var fileName = "minigolf/tunnel-wide.g3dj";
-//            var fileName = "minigolf/wall-left.g3dj";
-//            var fileName = "minigolf/wall-right.g3dj";
-//            var fileName = "minigolf/walls-to-open.g3dj";
-//            var fileName = "minigolf/windmill.g3dj";
             var models = providers.modelProvider;
-            var model = models.getOrCreate(fileName, assets.mgr.get(fileName, Model.class));
-            Objects.requireNonNull(model, "Failed to get model file '" + fileName + "' from asset manager");
+            var model = models.getOrCreate(modelKey, assets.mgr.get(modelKey, Model.class));
+            Objects.requireNonNull(model, "Failed to get model file '" + modelKey + "' from asset manager");
 
             // set the initial position and orientation of the model instance
-            var modelInstance = models.createModelInstanceComponent(fileName);
+            var modelInstance = models.createModelInstanceComponent(modelKey);
             modelInstance.transform.setToTranslation(position);
 
             // NOTE - scaling needs to be applied to the collision shape as well as the model instance
@@ -375,7 +326,7 @@ public class EntityFactory {
             modelInstance.transform.scale(scaling.x, scaling.y, scaling.z);
 
             // setup physics
-            var key = fileName.substring(1, fileName.indexOf('.')) + (numTiles++);
+            var key = modelKey.substring(1, modelKey.indexOf('.')) + (numTiles++);
             var collisionShape = providers.collisionShapeProvider
                     .builder(Type.custom, key).model(model).build();
 
