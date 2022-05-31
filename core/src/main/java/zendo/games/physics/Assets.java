@@ -115,8 +115,7 @@ public class Assets implements Disposable {
         {
 //            mgr.load("sprites/sprites.atlas", TextureAtlas.class);
 
-            mgr.load("libgdx.png", Texture.class);
-
+            // textures ---------------------------------------------
             var param = new TextureLoader.TextureParameter();
             param.minFilter = Texture.TextureFilter.MipMapLinearLinear;
             param.magFilter = Texture.TextureFilter.MipMapLinearLinear;
@@ -124,16 +123,59 @@ public class Assets implements Disposable {
             param.wrapV = Texture.TextureWrap.Repeat;
             param.genMipMaps = true;
 
+            mgr.load("libgdx.png", Texture.class);
             mgr.load("prototype-grid-orange-lighter.png", Texture.class, param);
             mgr.load("crate.png", Texture.class, param);
             mgr.load("metal.png", Texture.class, param);
 
-            mgr.load("start.g3db", Model.class);
-            mgr.load("straight.g3db", Model.class);
-            mgr.load("tile-start.g3db", Model.class);
-
-            // TODO - testing blender export plugin
+            // models -----------------------------------------------
             mgr.load("minigolf/block.g3dj", Model.class);
+            mgr.load("minigolf/bump-up.g3dj", Model.class);
+            mgr.load("minigolf/bump-up-walls.g3dj", Model.class);
+            mgr.load("minigolf/bump-down.g3dj", Model.class);
+            mgr.load("minigolf/bump-down-walls.g3dj", Model.class);
+            mgr.load("minigolf/castle.g3dj", Model.class);
+            mgr.load("minigolf/corner.g3dj", Model.class);
+            mgr.load("minigolf/corner-inner.g3dj", Model.class);
+            mgr.load("minigolf/corner-square-a.g3dj", Model.class);
+            mgr.load("minigolf/crest.g3dj", Model.class);
+            mgr.load("minigolf/end.g3dj", Model.class);
+            mgr.load("minigolf/gap.g3dj", Model.class);
+            mgr.load("minigolf/hill-corner.g3dj", Model.class);
+            mgr.load("minigolf/hill-round.g3dj", Model.class);
+            mgr.load("minigolf/hill-square.g3dj", Model.class);
+            mgr.load("minigolf/hole-open.g3dj", Model.class);
+            mgr.load("minigolf/hole-round.g3dj", Model.class);
+            mgr.load("minigolf/hole-square.g3dj", Model.class);
+            mgr.load("minigolf/narrow-block.g3dj", Model.class);
+            mgr.load("minigolf/narrow-round.g3dj", Model.class);
+            mgr.load("minigolf/narrow-square.g3dj", Model.class);
+            mgr.load("minigolf/obstacle-block.g3dj", Model.class);
+            mgr.load("minigolf/obstacle-diamond.g3dj", Model.class);
+            mgr.load("minigolf/obstacle-triangle.g3dj", Model.class);
+            mgr.load("minigolf/open.g3dj", Model.class);
+            mgr.load("minigolf/ramp-a.g3dj", Model.class);
+            mgr.load("minigolf/ramp-b.g3dj", Model.class);
+            mgr.load("minigolf/ramp-c.g3dj", Model.class);
+            mgr.load("minigolf/ramp-d.g3dj", Model.class);
+            mgr.load("minigolf/ramp-sharp.g3dj", Model.class);
+            mgr.load("minigolf/ramp-square.g3dj", Model.class);
+            mgr.load("minigolf/round-corner-a.g3dj", Model.class);
+            mgr.load("minigolf/round-corner-b.g3dj", Model.class);
+            mgr.load("minigolf/round-corner-c.g3dj", Model.class);
+            mgr.load("minigolf/side.g3dj", Model.class);
+            mgr.load("minigolf/split.g3dj", Model.class);
+            mgr.load("minigolf/split-t.g3dj", Model.class);
+            mgr.load("minigolf/split-walls-to-open.g3dj", Model.class);
+            mgr.load("minigolf/start.g3dj", Model.class);
+            mgr.load("minigolf/straight.g3dj", Model.class);
+            mgr.load("minigolf/tunnel-double.g3dj", Model.class);
+            mgr.load("minigolf/tunnel-narrow.g3dj", Model.class);
+            mgr.load("minigolf/tunnel-wide.g3dj", Model.class);
+            mgr.load("minigolf/wall-left.g3dj", Model.class);
+            mgr.load("minigolf/wall-right.g3dj", Model.class);
+            mgr.load("minigolf/walls-to-open.g3dj", Model.class);
+            mgr.load("minigolf/windmill.g3dj", Model.class);
         }
 
         if (load == Load.SYNC) {
