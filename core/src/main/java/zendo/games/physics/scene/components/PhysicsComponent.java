@@ -18,7 +18,7 @@ import static com.badlogic.gdx.physics.bullet.dynamics.btRigidBody.btRigidBodyCo
 
 public class PhysicsComponent implements Component, Disposable {
 
-    private static final Vector3 localInteria = new Vector3();
+    private static final Vector3 localInertia = new Vector3();
 
     private final MotionState motionState;
     private final btCollisionShape collisionShape;
@@ -37,12 +37,12 @@ public class PhysicsComponent implements Component, Disposable {
         this.motionState = new MotionState(transform);
         this.collisionShape = collisionShape;
 
-        localInteria.setZero();
+        localInertia.setZero();
         if (mass > 0) {
-            collisionShape.calculateLocalInertia(mass, localInteria);
+            collisionShape.calculateLocalInertia(mass, localInertia);
         }
 
-        this.constructionInfo = new btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInteria.cpy());
+        this.constructionInfo = new btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInertia.cpy());
         this.rigidBody = new btRigidBody(constructionInfo);
 
         // configure the rigid body
