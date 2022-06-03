@@ -4,12 +4,10 @@ import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.graphics.Camera;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.g2d.PixmapPacker;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
@@ -24,7 +22,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -46,12 +43,10 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     private final Engine engine;
     private final Stage stage;
     private final Skin skin;
-
-    private final Array<FrameBuffer> buttonFbos = new Array<>();
-    private final Array<TextureRegion> buttonRegions = new Array<>();
-
     public final GUIConsole console;
     public final ConsoleCommandExecutor commandExecutor;
+
+    private TextureAtlas iconAtlas;
 
     public VisImageTextButton activeModelButton;
 
@@ -83,7 +78,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         this.commandExecutor = new ConsoleCommandExecutor(screen);
         console.setCommandExecutor(commandExecutor);
 
-        prepModelsForMenu(assets.modelBatch, engine);
+        createIconAtlasFromModels(assets.modelBatch, engine);
 
         populateStage();
     }
@@ -118,8 +113,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     @Override
     public void dispose() {
-        buttonFbos.forEach(FrameBuffer::dispose);
-
+        iconAtlas.dispose();
         console.dispose();
         stage.dispose();
         VisUI.dispose();
@@ -154,7 +148,12 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         console.draw();
     }
 
-    private void prepModelsForMenu(ModelBatch batch, Engine engine) {
+    // TODO - could try drawing all to one texture and splitting like a texture atlas,
+    //  maybe reposition the camera in front of the model each time so that they all draw 'in front' of the camera
+    //  with the right orientation, that way it wouldn't be necessary to create and dispose fbos for each...
+
+    private void createIconAtlasFromModels(ModelBatch batch, Engine engine) {
+        // prep a camera to view whatever is drawn at the origin
         var camera = new PerspectiveCamera(67f, 100, 100);
         camera.near = 0.1f;
         camera.far = 100f;
@@ -162,37 +161,50 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         camera.lookAt(Vector3.Zero);
         camera.update();
 
-        var providers = engine.getSystem(ProviderSystem.class);
-        var models = providers.modelProvider;
+        // prep a pixmap packer to pack all the icon textures into an atlas
+        var pageWidth = 1024;
+        var pageHeight = 1024;
+        var pageFormat = Pixmap.Format.RGBA8888;
+        var padding = 0;
+        var duplicateBorder = false;
+        var stripWhitespace = false;
+        var packStrategy = new PixmapPacker.GuillotineStrategy();
+        var packer = new PixmapPacker(pageWidth, pageHeight, pageFormat,
+                padding, duplicateBorder, stripWhitespace, stripWhitespace, packStrategy);
 
-        // NOTE
-        //   this is kind of nuts, can't find a way to make a copy of the color buffer from the fbo
-        //   without that (or some additional post processing to pack all these textures into an atlas)
-        //   we have to make a new fbo for each model and keep it around for the menu's lifetime
-        //   because disposing the fbo destroys the pixel data in the color buffer and I don't know how to persist it
+        var models = engine.getSystem(ProviderSystem.class).modelProvider;
+        var fbo = new FrameBuffer(Pixmap.Format.RGBA8888, 100, 100, false);
         for (var modelType : MinigolfModels.values()) {
-            var fbo = new FrameBuffer(Pixmap.Format.RGBA8888, 100, 100, false);
-            buttonFbos.add(fbo);
-
-            var texture = fbo.getColorBufferTexture();
-            var region = new TextureRegion(texture);
-            region.flip(false, true);
-            buttonRegions.add(region);
-
+            // get an instance of this model to render to the offscreen buffer
             var key = modelType.key();
             var model = models.getOrCreate(key, assets);
             var instance = new ModelInstance(model);
-            instance.transform.rotate(Vector3.Y, -45f);
+            instance.transform.rotate(Vector3.Y, 45f);
 
+            // draw it
             fbo.begin();
             {
                 ScreenUtils.clear(0f, 0f, 0f, 0f);
+
+                // TODO - it would be nice to have lighting/shading on these too
+
                 batch.begin(camera);
                 batch.render(instance);
+                //noinspection GDXJavaFlushInsideLoop
                 batch.end();
+
+                // extract pixel data from the fbo and pack it into the texture atlas
+                var pixmap = Pixmap.createFromFrameBuffer(0, 0, fbo.getWidth(), fbo.getHeight());
+                packer.pack(modelType.name(), pixmap);
+                pixmap.dispose();
             }
             fbo.end();
         }
+        fbo.dispose();
+
+        // NOTE - could also setup PixmapIO to write this atlas out to the filesystem and run this as a preprocessing step
+        iconAtlas = packer.generateTextureAtlas(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
+        packer.dispose();
     }
 
     private void populateStage() {
@@ -240,11 +252,12 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             group.setMinCheckCount(0);
             group.setMaxCheckCount(1);
 
-            int i = 0;
             boolean first = true;
             for (var modelType : MinigolfModels.values()) {
-                var region = buttonRegions.get(i++);
-                var iconDrawable = new TextureRegionDrawable(region);
+                var iconRegion = iconAtlas.findRegion(modelType.name());
+                iconRegion.flip(false, true);
+
+                var iconDrawable = new TextureRegionDrawable(iconRegion);
 
                 // configure a custom button style that sets the checked state to a different color than the rest
                 var originalStyle = VisUI.getSkin().get(VisImageTextButton.VisImageTextButtonStyle.class);
