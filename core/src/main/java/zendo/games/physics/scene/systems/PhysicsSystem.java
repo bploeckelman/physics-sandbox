@@ -4,6 +4,7 @@ import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
@@ -22,6 +23,8 @@ import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
 
 public class PhysicsSystem extends EntitySystem implements EntityListener, Disposable {
+
+    private static final String TAG = PhysicsSystem.class.getSimpleName();
 
     public static class Flags {
         public static int ground = 1 << 9;
@@ -88,8 +91,10 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
     @Override
     public void entityRemoved(Entity entity) {
         var component = mapper.get(entity);
-        if (!component.rigidBody.isDisposed()) {
+        if (component.rigidBody.isInWorld()) {
             dynamicsWorld.removeRigidBody(component.rigidBody);
+        }
+        if (!component.rigidBody.isDisposed()) {
             component.dispose();
         }
     }
@@ -106,6 +111,19 @@ public class PhysicsSystem extends EntitySystem implements EntityListener, Dispo
         }
 
         dynamicsWorld.stepSimulation(delta, 5, 1f / 60f);
+    }
+    
+    public void removeFromWorld(PhysicsComponent physics) {
+        if (!physics.rigidBody.isInWorld()) return;
+        dynamicsWorld.removeRigidBody(physics.rigidBody);
+    }
+    
+    public void addToWorld(PhysicsComponent physics) {
+        if (physics.rigidBody.isInWorld()) {
+            Gdx.app.log(TAG, "Tried to add physics component to world when it was already added!");
+            return;
+        }
+        dynamicsWorld.addRigidBody(physics.rigidBody);
     }
 
     public void renderDebug(Camera camera) {

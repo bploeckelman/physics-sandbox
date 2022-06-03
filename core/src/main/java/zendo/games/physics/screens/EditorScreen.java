@@ -337,6 +337,10 @@ public class EditorScreen extends BaseScreen {
                     }
                     editInfo.originalMaterials.clear();
 
+                    // re-add physics component back into world
+                    var physics = ComponentMappers.physics.get(entity);
+                    physicsSystem.addToWorld(physics);
+
                     // leave the held entity in the world in its current configuration
                     editInfo.releaseEntity();
                 } else {
@@ -378,6 +382,10 @@ public class EditorScreen extends BaseScreen {
                             material.get(ColorAttribute.class, ColorAttribute.Diffuse).color.set(Color.WHITE);
                             material.set(new BlendingAttribute(0.75f));
                         }
+
+                        // remove the physics component while the tile is being placed
+                        var physics = ComponentMappers.physics.get(editInfo.heldEntity);
+                        physicsSystem.removeFromWorld(physics);
                     }
                 }
                 return true;
