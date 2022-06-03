@@ -4,27 +4,34 @@ import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.graphics.Camera;
-import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.MoveToAction;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.kotcrab.vis.ui.VisUI;
-import com.kotcrab.vis.ui.widget.VisLabel;
-import com.kotcrab.vis.ui.widget.VisScrollPane;
-import com.kotcrab.vis.ui.widget.VisTable;
-import com.kotcrab.vis.ui.widget.VisWindow;
+import com.kotcrab.vis.ui.widget.*;
 import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
+import zendo.games.physics.scene.packs.MinigolfModels;
 import zendo.games.physics.screens.EditorScreen;
 import zendo.games.physics.utils.ConsoleCommandExecutor;
+
+import java.util.Objects;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
@@ -36,8 +43,9 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public final GUIConsole console;
     public final ConsoleCommandExecutor commandExecutor;
 
-    private final Rectangle settingsPaneBoundsVisible = new Rectangle();
-    private final Rectangle settingsPaneBoundsHidden = new Rectangle();
+    private final FrameBuffer menuItemFbo;
+    private final Texture menuItemTexture;
+    private final TextureRegion menuItemRegion;
 
     private static class Settings {
         boolean isShown;
@@ -59,7 +67,6 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
         var viewport = new ScreenViewport(screen.windowCamera);
         this.stage = new Stage(viewport);
-        populateStage();
 
         this.console = new GUIConsole();
         console.setPosition(0, 0);
@@ -67,6 +74,15 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
         this.commandExecutor = new ConsoleCommandExecutor(screen);
         console.setCommandExecutor(commandExecutor);
+
+        this.menuItemFbo = new FrameBuffer(Pixmap.Format.RGBA8888, 100, 100, false);
+        this.menuItemTexture = menuItemFbo.getColorBufferTexture();
+        this.menuItemRegion = new TextureRegion(menuItemTexture);
+        menuItemRegion.flip(false, true);
+
+        prepModelsForMenu(assets.modelBatch, engine);
+
+        populateStage();
     }
 
     public InputProcessor getInputProcessor() {
@@ -101,6 +117,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public void dispose() {
         console.dispose();
         stage.dispose();
+        menuItemFbo.dispose();
         VisUI.dispose();
     }
 
@@ -133,7 +150,33 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         console.draw();
     }
 
-    public void populateStage() {
+    private void prepModelsForMenu(ModelBatch batch, Engine engine) {
+        var camera = new PerspectiveCamera(67f, 100, 100);
+        camera.near = 0.1f;
+        camera.far = 100f;
+        camera.position.set(0f, 1f, 1f);
+        camera.lookAt(Vector3.Zero);
+        camera.update();
+
+        var providers = engine.getSystem(ProviderSystem.class);
+        var models = providers.modelProvider;
+        var key = MinigolfModels.start.key();
+        var model = models.getOrCreate(key, assets.mgr.get(key, Model.class));
+        Objects.requireNonNull(model, "Failed to get model file '" + key + "' from asset manager");
+        var instance = new ModelInstance(model);
+        instance.transform.rotate(Vector3.Y, -45f);
+
+        menuItemFbo.begin();
+        {
+            ScreenUtils.clear(0f, 0f, 0f, 0f);
+            batch.begin(camera);
+            batch.render(instance);
+            batch.end();
+        }
+        menuItemFbo.end();
+    }
+
+    private void populateStage() {
         var defaultWindowStyle = skin.get("default", Window.WindowStyle.class);
         var glassWindowStyle = new Window.WindowStyle(defaultWindowStyle);
         glassWindowStyle.background = Assets.Patch.metal.drawable;
@@ -171,6 +214,16 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         settings.hideAction.setDuration(hideDuration);
 
         var scrollTable = new VisTable();
+
+        // add a test button
+        var menuItem = new VisImageTextButton(
+                MinigolfModels.start.modelName(),
+                new TextureRegionDrawable(menuItemRegion));
+        menuItem.background(new TextureRegionDrawable(assets.pixelRegion));
+        // TODO - add a click handler to set this as the 'active' tile to place
+        scrollTable.add(menuItem).row();
+
+        // populate with a bunch of test junk
         for (int i = 0; i < 100; i++) {
             scrollTable.add(new VisLabel("Item " + i));
             scrollTable.row();
