@@ -90,9 +90,14 @@ public class ModelProvider implements Provider<Model> {
     }
 
     public Model getOrCreate(String key, Model model) {
-        return (customModels.containsKey(key))
+        var result = (customModels.containsKey(key))
                 ? customModels.get(key)
                 : create(key, model);
+        return Objects.requireNonNull(result, "Failed to get or create model '" + key + "'");
+    }
+
+    public Model getOrCreate(String key, Assets assets) {
+        return getOrCreate(key, assets.mgr.get(key, Model.class));
     }
 
     public Model create(String key, Model model) {

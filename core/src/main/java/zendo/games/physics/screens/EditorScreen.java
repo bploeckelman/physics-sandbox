@@ -39,7 +39,7 @@ public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
 
-    public enum Mode { edit, noclip }
+    public enum Mode { edit, play}
     private Mode mode;
 
     private final Scene scene;
@@ -115,6 +115,12 @@ public class EditorScreen extends BaseScreen {
     public void update(float delta) {
         super.update(delta);
 
+        if (userInterfaceSystem.activeModelButton != null) {
+            if (userInterfaceSystem.activeModelButton.getUserObject() instanceof MinigolfModels modelType) {
+                activeModel = modelType;
+            }
+        }
+
         if (userInterfaceSystem.commandExecutor.isObjectSpawningEnabled) {
             angleAccum += delta;
             var amplitude = Calc.sin_deg_xform(angleAccum, 0f, 20f, 2f, 0f);
@@ -152,7 +158,7 @@ public class EditorScreen extends BaseScreen {
 
     private void setMode(Mode mode) {
         this.mode = mode;
-        if (mode == Mode.noclip) {
+        if (mode == Mode.play) {
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
         } else {
@@ -167,12 +173,12 @@ public class EditorScreen extends BaseScreen {
     }
 
     private void toggleMode() {
-        if (mode == Mode.noclip) {
+        if (mode == Mode.play) {
             mode = Mode.edit;
             worldCamera = orthoCamera;
             cameraController = new TopDownCameraController(worldCamera);
         } else {
-            mode = Mode.noclip;
+            mode = Mode.play;
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
         }
@@ -196,10 +202,15 @@ public class EditorScreen extends BaseScreen {
             }
             case Keys.ENTER -> {
                 toggleMode();
+                if (mode == Mode.play) {
+                    userInterfaceSystem.hideSettings();
+                }
                 return true;
             }
             case Keys.TAB -> {
-                userInterfaceSystem.toggleSettings();
+                if (mode == Mode.edit) {
+                    userInterfaceSystem.toggleSettings();
+                }
                 return true;
             }
             case Keys.NUM_1 -> {
@@ -232,20 +243,20 @@ public class EditorScreen extends BaseScreen {
                 }
             }
             // TESTING -------------------------------
-            case Keys.PLUS -> {
-                engine.addEntity(engine.createEntity()
-                        .add(new NameComponent("TEST" + componentCount++)));
-                return true;
-            }
-            case Keys.DEL -> {
-                var entities = engine.getEntities();
-                if (entities.size() > 0) {
-                    int random = MathUtils.random(0, entities.size() - 1);
-                    var entity = entities.get(random);
-                    engine.removeEntity(entity);
-                    return true;
-                }
-            }
+//            case Keys.PLUS -> {
+//                engine.addEntity(engine.createEntity()
+//                        .add(new NameComponent("TEST" + componentCount++)));
+//                return true;
+//            }
+//            case Keys.DEL -> {
+//                var entities = engine.getEntities();
+//                if (entities.size() > 0) {
+//                    int random = MathUtils.random(0, entities.size() - 1);
+//                    var entity = entities.get(random);
+//                    engine.removeEntity(entity);
+//                    return true;
+//                }
+//            }
             // TESTING -------------------------------
         }
         return super.keyUp(keycode);
@@ -253,15 +264,15 @@ public class EditorScreen extends BaseScreen {
 
     @Override
     public boolean scrolled(float amountX, float amountY) {
-        var dir = Calc.sign(amountY);
-        if (dir > 0) {
-            activeModel = activeModel.next();
-            return true;
-        } else if (dir < 0) {
-            activeModel = activeModel.prev();
-            return true;
-        }
-        return scrolled(amountX, amountY);
+//        var dir = Calc.sign(amountY);
+//        if (dir > 0) {
+//            activeModel = activeModel.next();
+//            return true;
+//        } else if (dir < 0) {
+//            activeModel = activeModel.prev();
+//            return true;
+//        }
+        return super.scrolled(amountX, amountY);
     }
 
     @Override
@@ -374,10 +385,6 @@ public class EditorScreen extends BaseScreen {
 
                     if (isTileEmpty) {
                         editInfo.heldEntity = EntityFactory.createTile(activeModel.key(), engine, assets, tileX, tileZ);
-
-                        // remove the coord component until the tile is placed
-                        // to determine whether a placement candidate tile is already occupied
-                        editInfo.heldEntity.remove(Coord2Component.class);
                     }
 
                     // set to selection material
@@ -400,6 +407,10 @@ public class EditorScreen extends BaseScreen {
                         // remove the physics component while the tile is being placed
                         var physics = ComponentMappers.physics.get(editInfo.heldEntity);
                         physicsSystem.removeFromWorld(physics);
+
+                        // remove the coord component until the tile is placed
+                        // to determine whether a placement candidate tile is already occupied
+                        editInfo.heldEntity.remove(Coord2Component.class);
                     }
                 }
                 return true;

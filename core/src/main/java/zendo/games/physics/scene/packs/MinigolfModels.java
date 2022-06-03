@@ -47,7 +47,7 @@ public enum MinigolfModels implements ModelPack {
     , wall_left
     , wall_right
     , walls_to_open
-    , windmill
+//    , windmill // TODO - the model doesn't import quite correctly, probably because it has multiple parts (blades vs house)
     ;
 
       public MinigolfModels next() {
