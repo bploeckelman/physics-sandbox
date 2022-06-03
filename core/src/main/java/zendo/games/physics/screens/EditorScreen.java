@@ -313,15 +313,25 @@ public class EditorScreen extends BaseScreen {
 
                     entity.add(new NameComponent("tile " + componentCount++));
 
-                    // TODO - make sure the position is not occupied
-                    // update coord component to new position
+                    // find the tile coord at the current position
                     var modelInstance = ComponentMappers.modelInstance.get(entity);
                     var translation = vec3Pool.obtain();
                     modelInstance.transform.getTranslation(translation);
-                    entity.add(new Coord2Component(
-                            MathUtils.floor(translation.x / EntityFactory.TILE_SIZE),
-                            MathUtils.floor(translation.z / EntityFactory.TILE_SIZE)
-                    ));
+                    var tileX = MathUtils.floor(translation.x / EntityFactory.TILE_SIZE);
+                    var tileZ = MathUtils.floor(translation.z / EntityFactory.TILE_SIZE);
+
+                    // check whether this tile space is already occupied
+                    var coordEntities = engine.getEntitiesFor(ComponentFamilies.coord2);
+                    for (var coordEntity : coordEntities) {
+                        var coord = ComponentMappers.coord2.get(coordEntity);
+                        if (coord.equals(tileX, tileZ)) {
+                            // this tile is already occupied, don't place it
+                            return false;
+                        }
+                    }
+
+                    // update the coord component with the new tile position
+                    entity.add(new Coord2Component(tileX, tileZ));
 
                     // restore material
                     for (var material : modelInstance.materials) {
@@ -364,6 +374,10 @@ public class EditorScreen extends BaseScreen {
 
                     if (isTileEmpty) {
                         editInfo.heldEntity = EntityFactory.createTile(activeModel.key(), engine, assets, tileX, tileZ);
+
+                        // remove the coord component until the tile is placed
+                        // to determine whether a placement candidate tile is already occupied
+                        editInfo.heldEntity.remove(Coord2Component.class);
                     }
 
                     // set to selection material
