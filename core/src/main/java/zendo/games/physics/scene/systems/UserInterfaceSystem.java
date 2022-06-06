@@ -2,6 +2,7 @@ package zendo.games.physics.scene.systems;
 
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.EntitySystem;
+import com.badlogic.gdx.Files;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.*;
@@ -17,19 +18,19 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.MoveToAction;
 import com.badlogic.gdx.scenes.scene2d.ui.ButtonGroup;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.kotcrab.vis.ui.VisUI;
-import com.kotcrab.vis.ui.widget.VisImageTextButton;
-import com.kotcrab.vis.ui.widget.VisScrollPane;
-import com.kotcrab.vis.ui.widget.VisTable;
-import com.kotcrab.vis.ui.widget.VisWindow;
+import com.kotcrab.vis.ui.widget.*;
 import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
@@ -39,6 +40,8 @@ import zendo.games.physics.utils.ConsoleCommandExecutor;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
+    private static final String TAG = UserInterfaceSystem.class.getSimpleName();
+    
     private final Assets assets;
     private final Engine engine;
     private final Stage stage;
@@ -47,6 +50,10 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public final ConsoleCommandExecutor commandExecutor;
 
     private TextureAtlas iconAtlas;
+
+    private VisList<String> levelFileList;
+    private MoveToAction showLevelFilePicker;
+    private MoveToAction hideLevelFilePicker;
 
     public VisImageTextButton activeModelButton;
 
@@ -208,97 +215,206 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     }
 
     private void populateStage() {
-        var defaultWindowStyle = skin.get("default", Window.WindowStyle.class);
-        var glassWindowStyle = new Window.WindowStyle(defaultWindowStyle);
-        glassWindowStyle.background = Assets.Patch.metal.drawable;
-        glassWindowStyle.titleFont = assets.font;
-        glassWindowStyle.titleFontColor = Color.WHITE;
-
-        settings.isShown = false;
-
         var camera = stage.getCamera();
-        var percentWidth = 0.2f;
-        var percentHeight = 1f;
-        settings.boundsVisible.set(0f, 0f, percentWidth * camera.viewportWidth, percentHeight * camera.viewportHeight);
-        settings.boundsHidden.set(settings.boundsVisible);
-        settings.boundsHidden.x -= settings.boundsVisible.width;
 
-        settings.window = new VisWindow("", glassWindowStyle);
-        settings.window.pad(10);
-//        settings.window.pad(40, 20, 0, 0);
-        settings.window.setSize(settings.boundsHidden.width, settings.boundsHidden.height);
-        settings.window.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
-        settings.window.align(Align.top | Align.center);
-        settings.window.setModal(false);
-        settings.window.setMovable(false);
-        settings.window.setKeepWithinStage(false);
-
-        var showDuration = 0.075f;
-        var hideDuration = 0.05f;
-
-        settings.showAction = new MoveToAction();
-        settings.showAction.setPosition(settings.boundsVisible.x, settings.boundsVisible.y);
-        settings.showAction.setDuration(showDuration);
-
-        settings.hideAction = new MoveToAction();
-        settings.hideAction.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
-        settings.hideAction.setDuration(hideDuration);
-
-        // populate a vertical scroll pane with buttons corresponding to each available model type
-        var scrollTable = new VisTable();
+        // --------------------------------
+        // settings window and other elements
         {
-            // radio button style, only 1 checked at a time
-            var group = new ButtonGroup<VisImageTextButton>();
-            group.setMinCheckCount(0);
-            group.setMaxCheckCount(1);
+            var defaultWindowStyle = skin.get("default", Window.WindowStyle.class);
+            var glassWindowStyle = new Window.WindowStyle(defaultWindowStyle);
+            glassWindowStyle.background = Assets.Patch.metal.drawable;
+            glassWindowStyle.titleFont = assets.font;
+            glassWindowStyle.titleFontColor = Color.WHITE;
 
-            boolean first = true;
-            for (var modelType : MinigolfModels.values()) {
-                var iconRegion = iconAtlas.findRegion(modelType.name());
-                iconRegion.flip(false, true);
+            settings.isShown = false;
 
-                var iconDrawable = new TextureRegionDrawable(iconRegion);
+            var percentWidth = 0.2f;
+            var percentHeight = 1f;
+            settings.boundsVisible.set(0f, 0f, percentWidth * camera.viewportWidth, percentHeight * camera.viewportHeight);
+            settings.boundsHidden.set(settings.boundsVisible);
+            settings.boundsHidden.x -= settings.boundsVisible.width;
 
-                // configure a custom button style that sets the checked state to a different color than the rest
-                var originalStyle = VisUI.getSkin().get(VisImageTextButton.VisImageTextButtonStyle.class);
-                var style = new VisImageTextButton.VisImageTextButtonStyle(originalStyle);
-                style.checked = new TextureRegionDrawable(assets.pixelRegion).tint(Color.GRAY);
-                style.imageUp = iconDrawable;
-                style.imageDown = iconDrawable;
-                style.imageOver = iconDrawable;
-                style.imageChecked = iconDrawable;
-                style.imageDisabled = iconDrawable;
-                style.imageCheckedOver = iconDrawable;
+            settings.window = new VisWindow("", glassWindowStyle);
+            settings.window.pad(10);
+//            settings.window.pad(40, 20, 0, 0);
+            settings.window.setSize(settings.boundsHidden.width, settings.boundsHidden.height);
+            settings.window.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
+            settings.window.align(Align.top | Align.center);
+            settings.window.setModal(false);
+            settings.window.setMovable(false);
+            settings.window.setKeepWithinStage(false);
 
-                var button = new VisImageTextButton(modelType.modelName(), style);
-                button.setUserObject(modelType);
+            var showSettingsDuration = 0.075f;
+            var hideSettingsDuration = 0.05f;
 
-                final var thisButton = button;
-                button.addListener(new ClickListener() {
-                    @Override
-                    public void clicked(InputEvent event, float x, float y) {
-                        activeModelButton = thisButton;
+            settings.showAction = new MoveToAction();
+            settings.showAction.setDuration(showSettingsDuration);
+            settings.showAction.setPosition(settings.boundsVisible.x, settings.boundsVisible.y);
+
+            settings.hideAction = new MoveToAction();
+            settings.hideAction.setDuration(hideSettingsDuration);
+            settings.hideAction.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
+
+            // populate a vertical scroll pane with buttons corresponding to each available model type
+            var scrollTable = new VisTable();
+            {
+                // radio button style, only 1 checked at a time
+                var group = new ButtonGroup<VisImageTextButton>();
+                group.setMinCheckCount(0);
+                group.setMaxCheckCount(1);
+
+                boolean first = true;
+                for (var modelType : MinigolfModels.values()) {
+                    var iconRegion = iconAtlas.findRegion(modelType.name());
+                    iconRegion.flip(false, true);
+
+                    var iconDrawable = new TextureRegionDrawable(iconRegion);
+
+                    // configure a custom button style that sets the checked state to a different color than the rest
+                    var originalStyle = VisUI.getSkin().get(VisImageTextButton.VisImageTextButtonStyle.class);
+                    var style = new VisImageTextButton.VisImageTextButtonStyle(originalStyle);
+                    style.checked = new TextureRegionDrawable(assets.pixelRegion).tint(Color.GRAY);
+                    style.imageUp = iconDrawable;
+                    style.imageDown = iconDrawable;
+                    style.imageOver = iconDrawable;
+                    style.imageChecked = iconDrawable;
+                    style.imageDisabled = iconDrawable;
+                    style.imageCheckedOver = iconDrawable;
+
+                    var button = new VisImageTextButton(modelType.modelName(), style);
+                    button.setUserObject(modelType);
+
+                    final var thisButton = button;
+                    button.addListener(new ClickListener() {
+                        @Override
+                        public void clicked(InputEvent event, float x, float y) {
+                            activeModelButton = thisButton;
+                        }
+                    });
+
+                    // start with one button checked
+                    if (first) {
+                        first = false;
+                        button.setChecked(true);
+                        activeModelButton = button;
                     }
-                });
 
-                // start with one button checked
-                if (first) {
-                    first = false;
-                    button.setChecked(true);
-                    activeModelButton = button;
+                    group.add(button);
+
+                    scrollTable.add(button).growX().row();
                 }
-
-                group.add(button);
-
-                scrollTable.add(button).growX().row();
             }
+            var scrollPane = new VisScrollPane(scrollTable);
+            scrollPane.setFillParent(true);
+            settings.window.addActor(scrollPane);
+
+            stage.addActor(settings.window);
         }
-        var scrollPane = new VisScrollPane(scrollTable);
-        scrollPane.setFillParent(true);
 
-        settings.window.addActor(scrollPane);
+        // --------------------------------
+        // TODO - show/hide toggle button (arrow handle attached to side of settings window
 
-        stage.addActor(settings.window);
+        // --------------------------------
+        // level file picker
+        {
+            var originalStyle = skin.get(VisList.ListStyle.class);
+            var style = new List.ListStyle(originalStyle);
+            style.background = new NinePatchDrawable(Assets.Patch.glass.drawable);
+
+            levelFileList = new VisList<>(style);
+            levelFileList.setWidth(200f);
+            updateLevelFilePickerItems();
+
+            var showLevelFilePickerDuration = 0.1f;
+            var hideLevelFilePickerDuration = 0.05f;
+
+            showLevelFilePicker = new MoveToAction();
+            showLevelFilePicker.setDuration(showLevelFilePickerDuration);
+            showLevelFilePicker.setPosition(
+                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
+                    camera.viewportHeight / 2f - levelFileList.getHeight() / 2f);
+
+            hideLevelFilePicker = new MoveToAction();
+            hideLevelFilePicker.setDuration(hideLevelFilePickerDuration);
+            hideLevelFilePicker.setPosition(
+                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
+                    -levelFileList.getHeight());
+
+            // start hidden
+            levelFileList.setPosition(
+                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
+                    -levelFileList.getHeight());
+
+            stage.addActor(levelFileList);
+        }
+
+        // --------------------------------
+        // top level buttons
+        {
+            var width = 70;
+            var height = 50;
+
+            var loadLevelButton = new VisTextButton("Load");
+            loadLevelButton.setSize(width, height);
+            loadLevelButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    showLevelFilePicker.reset();
+                    levelFileList.addAction(showLevelFilePicker);
+                }
+            });
+
+            var saveLevelButton = new VisTextButton("Save");
+            saveLevelButton.setSize(width, height);
+            saveLevelButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    hideLevelFilePicker.reset();
+                    levelFileList.addAction(hideLevelFilePicker);
+                }
+            });
+
+            var originalStyle = skin.get("default", VisWindow.WindowStyle.class);
+            var style = new VisWindow.WindowStyle(originalStyle);
+            style.background = Assets.Patch.metal.drawable;
+            style.titleFont = assets.smallFont;
+            style.titleFontColor = Color.WHITE;
+
+            var levelsWindow = new VisWindow("Levels", style);
+            levelsWindow.setSize(width, 2 * height);
+            levelsWindow.setPosition(camera.viewportWidth - width, 0);
+
+            levelsWindow.defaults().padTop(5f);
+            levelsWindow.add(loadLevelButton).growX().row();
+            levelsWindow.add(saveLevelButton).growX();
+
+            stage.addActor(levelsWindow);
+        }
     }
+
+    private void updateLevelFilePickerItems() {
+        var levelFileLabels = new Array<String>();
+        var levelsDir = Gdx.files.getFileHandle("levels", Files.FileType.Internal);
+        for (var file : levelsDir.list("json")) {
+            var filename = file.name();
+            var name = filename.substring(0, filename.lastIndexOf(".json"));
+            levelFileLabels.add(name);
+        }
+        if (levelFileLabels.isEmpty()) {
+            levelFileLabels.add("[no files available]");
+        }
+        levelFileList.setItems(levelFileLabels);
+    }
+
+    public record TileInfo(
+            int x,
+            int y,
+            float yRotation,
+            String modelType
+    ) {}
+
+    public record LevelFileInfo(
+            Array<TileInfo> tileInfos
+    ) {}
 
 }
