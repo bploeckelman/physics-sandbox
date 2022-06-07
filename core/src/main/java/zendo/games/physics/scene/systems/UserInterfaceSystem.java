@@ -59,9 +59,14 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     private static class Settings {
         boolean isShown;
-        MoveToAction showAction;
-        MoveToAction hideAction;
+
         VisWindow window;
+        MoveToAction windowShowAction;
+        MoveToAction windowHideAction;
+
+        VisImageButton toggleButton;
+        MoveToAction buttonShowAction;
+        MoveToAction buttonHideAction;
 
         final Rectangle boundsVisible = new Rectangle();
         final Rectangle boundsHidden  = new Rectangle();
@@ -106,16 +111,22 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         if (settings.isShown) return;
 
         settings.isShown = true;
-        settings.showAction.reset();
-        settings.window.addAction(settings.showAction);
+        settings.windowShowAction.reset();
+        settings.window.addAction(settings.windowShowAction);
+
+        settings.buttonShowAction.reset();
+        settings.toggleButton.addAction(settings.buttonShowAction);
     }
 
     public void hideSettings() {
         if (!settings.isShown) return;
 
         settings.isShown = false;
-        settings.hideAction.reset();
-        settings.window.addAction(settings.hideAction);
+        settings.windowHideAction.reset();
+        settings.window.addAction(settings.windowHideAction);
+
+        settings.buttonHideAction.reset();
+        settings.toggleButton.addAction(settings.buttonHideAction);
     }
 
     @Override
@@ -247,13 +258,13 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             var showSettingsDuration = 0.075f;
             var hideSettingsDuration = 0.05f;
 
-            settings.showAction = new MoveToAction();
-            settings.showAction.setDuration(showSettingsDuration);
-            settings.showAction.setPosition(settings.boundsVisible.x, settings.boundsVisible.y);
+            settings.windowShowAction = new MoveToAction();
+            settings.windowShowAction.setDuration(showSettingsDuration);
+            settings.windowShowAction.setPosition(settings.boundsVisible.x, settings.boundsVisible.y);
 
-            settings.hideAction = new MoveToAction();
-            settings.hideAction.setDuration(hideSettingsDuration);
-            settings.hideAction.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
+            settings.windowHideAction = new MoveToAction();
+            settings.windowHideAction.setDuration(hideSettingsDuration);
+            settings.windowHideAction.setPosition(settings.boundsHidden.x, settings.boundsHidden.y);
 
             // populate a vertical scroll pane with buttons corresponding to each available model type
             var scrollTable = new VisTable();
@@ -309,10 +320,44 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             settings.window.addActor(scrollPane);
 
             stage.addActor(settings.window);
-        }
 
-        // --------------------------------
-        // TODO - show/hide toggle button (arrow handle attached to side of settings window
+            // --------------------------------
+            // show/hide toggle button (arrow handle attached to side of settings window
+            var originalButtonStyle = skin.get("default", VisImageButton.VisImageButtonStyle.class);
+            var buttonStyle = new VisImageButton.VisImageButtonStyle(originalButtonStyle);
+            buttonStyle.imageChecked = new TextureRegionDrawable(assets.atlas.findRegion("icons/arrows-left"));
+            buttonStyle.imageUp = new TextureRegionDrawable(assets.atlas.findRegion("icons/arrows-right"));
+
+            var toggleButton = new VisImageButton(buttonStyle);
+            toggleButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if (settings.isShown) {
+                        hideSettings();
+                    } else {
+                        showSettings();
+                    }
+                }
+            });
+
+            // start 'hidden'
+            toggleButton.setSize(35f, 100f);
+            toggleButton.setPosition(0, camera.viewportHeight / 2f - toggleButton.getHeight() / 2f);
+
+            settings.buttonShowAction = new MoveToAction();
+            settings.buttonShowAction.setDuration(showSettingsDuration);
+            settings.buttonShowAction.setPosition(
+                    settings.boundsVisible.x + settings.boundsVisible.width,
+                    camera.viewportHeight / 2f - toggleButton.getHeight() / 2f);
+
+            settings.buttonHideAction = new MoveToAction();
+            settings.buttonHideAction.setDuration(hideSettingsDuration);
+            settings.buttonHideAction.setPosition(0, camera.viewportHeight / 2f - toggleButton.getHeight() / 2f);
+
+            settings.toggleButton = toggleButton;
+
+            stage.addActor(settings.toggleButton);
+        }
 
         // --------------------------------
         // level file picker
@@ -369,6 +414,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             saveLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
+                    // TODO - add a component or component family that is uniquely attached to tiles that should be persisted
                     hideLevelFilePicker.reset();
                     levelFileList.addAction(hideLevelFilePicker);
                 }
