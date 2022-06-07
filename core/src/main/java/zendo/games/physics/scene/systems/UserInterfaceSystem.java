@@ -29,10 +29,14 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.kotcrab.vis.ui.VisUI;
 import com.kotcrab.vis.ui.widget.*;
 import com.strongjoshua.console.GUIConsole;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.TileComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
 import zendo.games.physics.scene.components.utils.ComponentMappers;
+import zendo.games.physics.scene.factories.EntityFactory;
 import zendo.games.physics.scene.packs.MinigolfModels;
 import zendo.games.physics.screens.EditorScreen;
 import zendo.games.physics.utils.ConsoleCommandExecutor;
@@ -406,6 +410,8 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             loadLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
+                    // TODO - trigger this when clicking on a filename to load from the file picker ui
+                    loadLevelData("test.json");
                     showLevelFilePicker.reset();
                     levelFileList.addAction(showLevelFilePicker);
                 }
@@ -416,27 +422,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             saveLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    var filename = "test.json";
-                    var tileEntities = engine.getEntitiesFor(ComponentFamilies.tiles);
-                    if (tileEntities.size() > 0) {
-                        var tileInfos = new Array<TileInfo>();
-                        for (var entity : tileEntities) {
-                            var tile = ComponentMappers.tiles.get(entity);
-                            var tileInfo = new TileInfo(tile);
-                            tileInfos.add(tileInfo);
-                        }
-                        var levelInfo = new LevelFileInfo(tileInfos);
-                        var json = new Json(JsonWriter.OutputType.json);
-                        var jsonData = json.prettyPrint(levelInfo);//, LevelFileInfo.class)
-                        var path = "levels/" + filename;
-                        var file = Gdx.files.getFileHandle(path, Files.FileType.Local);
-                        file.writeString(jsonData, false, StandardCharsets.UTF_8.name());
-                        Gdx.app.log(TAG, "wrote level data to " + filename);
-                    } else {
-                        Gdx.app.log(TAG, "no tile data to write level");
-                    }
-                    // TODO - pop a toast with results (saved / failed)
-
+                    saveLevelData("test.json");
                     hideLevelFilePicker.reset();
                     levelFileList.addAction(hideLevelFilePicker);
                 }
@@ -460,6 +446,47 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         }
     }
 
+    private void saveLevelData(String filename) {
+        var tileEntities = engine.getEntitiesFor(ComponentFamilies.tiles);
+        if (tileEntities.size() > 0) {
+            var tileInfos = new Array<TileInfo>();
+            for (var entity : tileEntities) {
+                var tile = ComponentMappers.tiles.get(entity);
+                var tileInfo = new TileInfo(tile);
+                tileInfos.add(tileInfo);
+            }
+            var levelInfo = new LevelFileInfo(tileInfos);
+            var json = new Json(JsonWriter.OutputType.json);
+            var jsonData = json.prettyPrint(levelInfo);//, LevelFileInfo.class)
+            var path = "levels/" + filename;
+            var file = Gdx.files.getFileHandle(path, Files.FileType.Local);
+            file.writeString(jsonData, false, StandardCharsets.UTF_8.name());
+            Gdx.app.log(TAG, "wrote level data to " + filename);
+        } else {
+            Gdx.app.log(TAG, "no tile data to write level");
+        }
+        // TODO - pop a toast with results (saved / failed)
+    }
+
+    private void loadLevelData(String filename) {
+        var path = "levels/" + filename;
+        var file = Gdx.files.local(path);
+        if (file.exists()) {
+            var json = new Json();
+            var jsonData = file.readString(StandardCharsets.UTF_8.name());
+            var levelData = json.fromJson(LevelFileInfo.class, jsonData);
+            if (!levelData.tileInfos.isEmpty()) {
+                // clear existing tiles before loading a new one
+                engine.removeAllEntities(ComponentFamilies.tiles);
+
+                for (var tileInfo : levelData.tileInfos) {
+                    var modelType = MinigolfModels.valueOf(tileInfo.modelType);
+                    EntityFactory.createTile(modelType, engine, assets, tileInfo.x, tileInfo.z, tileInfo.yRotation);
+                }
+            }
+        }
+    }
+
     private void updateLevelFilePickerItems() {
         var levelFileLabels = new Array<String>();
         var levelsDir = Gdx.files.getFileHandle("levels", Files.FileType.Internal);
@@ -474,19 +501,24 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         levelFileList.setItems(levelFileLabels);
     }
 
-    public record TileInfo(
-            int x,
-            int y,
-            float yRotation,
-            String modelType
-    ) {
-        TileInfo(TileComponent tile) {
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TileInfo {
+        int x;
+        int z;
+        float yRotation;
+        String modelType;
+        public TileInfo(TileComponent tile) {
             this(tile.xCoord, tile.zCoord, tile.yRotation, tile.modelType.name());
         }
     }
 
-    public record LevelFileInfo(
-            Array<TileInfo> tileInfos
-    ) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LevelFileInfo {
+        Array<TileInfo> tileInfos;
+    }
 
 }

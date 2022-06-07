@@ -210,10 +210,14 @@ public class EntityFactory {
     // TODO - make a helper that converts between screenX,Y and tileX,Y
 
     public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY) {
-        return createTile(modelType, engine, assets, tileX, tileY, true);
+        return createTile(modelType, engine, assets, tileX, tileY, 0f, true);
     }
 
-    public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
+    public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY, float yRotation) {
+        return createTile(modelType, engine, assets, tileX, tileY, yRotation, true);
+    }
+
+    public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY, float yRotation, boolean addToEngine) {
         var providers = engine.getSystem(ProviderSystem.class);
         var vec3Pool = BaseScreen.vec3Pool;
 
@@ -243,7 +247,10 @@ public class EntityFactory {
             //   breaks collisions (due to not explicitly calling btCollisionShape.setLocalScaling()?)
             //   so just use the position to create the collision shape then scale the model instance separately
             var transform = modelInstance.transform.cpy();
-            modelInstance.transform.scale(scaling.x, scaling.y, scaling.z);
+            modelInstance.transform
+                    .scale(scaling.x, scaling.y, scaling.z)
+                    .rotate(Vector3.Y, yRotation)
+            ;
 
             // setup physics
             var key = modelKey.substring(1, modelKey.indexOf('.')) + (numTiles++);
@@ -260,17 +267,20 @@ public class EntityFactory {
             // instead of letting bullet do it with the motion state
             physics.rigidBody.setMotionState(null);
 
-            // NOTE - exporting a model as y-up orients the model instance correctly,
+            // NOTE - exporting a model as z-up orients the model instance correctly,
             //  but the collision shape built from the model's triangles is still oriented as z-up
             //  so either the physics body needs to be re-oriented or both physics and model instance do
             //  easier to do the physics body separately in case we don't need a physics body
             //  for any particular model
             // set initial position and orientation of physics body
             transform = physics.rigidBody.getWorldTransform();
-            transform.rotate(Vector3.X, -90f);
+            transform
+                    .rotate(Vector3.Y, yRotation)
+                    .rotate(Vector3.X, -90f)
+            ;
             physics.rigidBody.setWorldTransform(transform);
 
-            var tile = new TileComponent(tileX, tileY, 0f, modelType);
+            var tile = new TileComponent(tileX, tileY, yRotation, modelType);
 
             entity.add(name);
             entity.add(coord);
