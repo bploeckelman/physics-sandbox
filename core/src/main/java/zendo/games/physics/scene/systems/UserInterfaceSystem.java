@@ -24,19 +24,20 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.ScreenUtils;
+import com.badlogic.gdx.utils.*;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.kotcrab.vis.ui.VisUI;
 import com.kotcrab.vis.ui.widget.*;
 import com.strongjoshua.console.GUIConsole;
 import zendo.games.physics.Assets;
+import zendo.games.physics.scene.components.TileComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
+import zendo.games.physics.scene.components.utils.ComponentMappers;
 import zendo.games.physics.scene.packs.MinigolfModels;
 import zendo.games.physics.screens.EditorScreen;
 import zendo.games.physics.utils.ConsoleCommandExecutor;
+
+import java.nio.charset.StandardCharsets;
 
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
@@ -395,6 +396,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
         // --------------------------------
         // top level buttons
+        // TODO - add a text field for the current level name
         {
             var width = 70;
             var height = 50;
@@ -414,7 +416,27 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             saveLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    // TODO - add a component or component family that is uniquely attached to tiles that should be persisted
+                    var filename = "test.json";
+                    var tileEntities = engine.getEntitiesFor(ComponentFamilies.tiles);
+                    if (tileEntities.size() > 0) {
+                        var tileInfos = new Array<TileInfo>();
+                        for (var entity : tileEntities) {
+                            var tile = ComponentMappers.tiles.get(entity);
+                            var tileInfo = new TileInfo(tile);
+                            tileInfos.add(tileInfo);
+                        }
+                        var levelInfo = new LevelFileInfo(tileInfos);
+                        var json = new Json(JsonWriter.OutputType.json);
+                        var jsonData = json.prettyPrint(levelInfo);//, LevelFileInfo.class)
+                        var path = "levels/" + filename;
+                        var file = Gdx.files.getFileHandle(path, Files.FileType.Local);
+                        file.writeString(jsonData, false, StandardCharsets.UTF_8.name());
+                        Gdx.app.log(TAG, "wrote level data to " + filename);
+                    } else {
+                        Gdx.app.log(TAG, "no tile data to write level");
+                    }
+                    // TODO - pop a toast with results (saved / failed)
+
                     hideLevelFilePicker.reset();
                     levelFileList.addAction(hideLevelFilePicker);
                 }
@@ -457,7 +479,11 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             int y,
             float yRotation,
             String modelType
-    ) {}
+    ) {
+        TileInfo(TileComponent tile) {
+            this(tile.xCoord, tile.zCoord, tile.yRotation, tile.modelType.name());
+        }
+    }
 
     public record LevelFileInfo(
             Array<TileInfo> tileInfos

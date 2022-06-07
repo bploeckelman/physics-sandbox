@@ -10,6 +10,8 @@ import zendo.games.physics.Game;
 import zendo.games.physics.scene.components.Coord2Component;
 import zendo.games.physics.scene.components.NameComponent;
 import zendo.games.physics.scene.components.PhysicsComponent;
+import zendo.games.physics.scene.components.TileComponent;
+import zendo.games.physics.scene.packs.MinigolfModels;
 import zendo.games.physics.scene.providers.ModelProvider;
 import zendo.games.physics.scene.systems.ProviderSystem;
 import zendo.games.physics.screens.BaseScreen;
@@ -207,11 +209,11 @@ public class EntityFactory {
 
     // TODO - make a helper that converts between screenX,Y and tileX,Y
 
-    public static Entity createTile(String modelKey, Engine engine, Assets assets, int tileX, int tileY) {
-        return createTile(modelKey, engine, assets, tileX, tileY, true);
+    public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY) {
+        return createTile(modelType, engine, assets, tileX, tileY, true);
     }
 
-    public static Entity createTile(String modelKey, Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
+    public static Entity createTile(MinigolfModels modelType, Engine engine, Assets assets, int tileX, int tileY, boolean addToEngine) {
         var providers = engine.getSystem(ProviderSystem.class);
         var vec3Pool = BaseScreen.vec3Pool;
 
@@ -227,6 +229,7 @@ public class EntityFactory {
             var scaling = vec3Pool.obtain().set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
             // create the model instance
+            var modelKey = modelType.key();
             var models = providers.modelProvider;
             var model = models.getOrCreate(modelKey, assets);
             Objects.requireNonNull(model, "Failed to get model file '" + modelKey + "' from asset manager");
@@ -267,10 +270,13 @@ public class EntityFactory {
             transform.rotate(Vector3.X, -90f);
             physics.rigidBody.setWorldTransform(transform);
 
+            var tile = new TileComponent(tileX, tileY, 0f, modelType);
+
             entity.add(name);
             entity.add(coord);
             entity.add(modelInstance);
             entity.add(physics);
+            entity.add(tile);
 
             vec3Pool.free(position);
             vec3Pool.free(scaling);

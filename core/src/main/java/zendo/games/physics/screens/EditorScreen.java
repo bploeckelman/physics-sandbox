@@ -344,6 +344,10 @@ public class EditorScreen extends BaseScreen {
                     // update the coord component with the new tile position
                     entity.add(new Coord2Component(tileX, tileZ));
 
+                    var tile = ComponentMappers.tiles.get(entity);
+                    tile.xCoord = tileX;
+                    tile.zCoord = tileZ;
+
                     // restore material
                     for (var material : modelInstance.materials) {
                         // remove blending
@@ -384,7 +388,7 @@ public class EditorScreen extends BaseScreen {
                     }
 
                     if (isTileEmpty) {
-                        editInfo.heldEntity = EntityFactory.createTile(activeModel.key(), engine, assets, tileX, tileZ);
+                        editInfo.heldEntity = EntityFactory.createTile(activeModel, engine, assets, tileX, tileZ);
                     }
 
                     // set to selection material
@@ -469,13 +473,17 @@ public class EditorScreen extends BaseScreen {
         transform.getTranslation(editInfo.translation);
         transform.getRotation(editInfo.rotation);
         var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+        var yAngleNew = yAngle - 90f;
 
         transform.idt()
-                .rotate(Vector3.Y, yAngle - 90f)
+                .rotate(Vector3.Y, yAngleNew)
                 .rotate(Vector3.X, -90f)
                 .setTranslation(editInfo.translation)
         ;
         physics.rigidBody.setWorldTransform(transform);
+
+        var tile = ComponentMappers.tiles.get(entity);
+        tile.yRotation = yAngleNew;
     }
 
     private void rotateEntityCCW(Entity entity) {
@@ -489,13 +497,17 @@ public class EditorScreen extends BaseScreen {
         transform.getTranslation(editInfo.translation);
         transform.getRotation(editInfo.rotation);
         var yAngle = editInfo.rotation.getAngleAround(Vector3.Y);
+        var yAngleNew = yAngle + 90f;
 
         transform.idt()
-                .rotate(Vector3.Y, yAngle + 90f)
+                .rotate(Vector3.Y, yAngleNew)
                 .rotate(Vector3.X, -90f)
                 .setTranslation(editInfo.translation)
         ;
         physics.rigidBody.setWorldTransform(transform);
+
+        var tile = ComponentMappers.tiles.get(entity);
+        tile.yRotation = yAngleNew;
     }
 
 }
