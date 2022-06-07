@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -51,16 +52,23 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     private final Engine engine;
     private final Stage stage;
     private final Skin skin;
+    private TextureAtlas iconAtlas;
+
     public final GUIConsole console;
     public final ConsoleCommandExecutor commandExecutor;
 
-    private TextureAtlas iconAtlas;
-
-    private VisList<String> levelFileList;
-    private MoveToAction showLevelFilePicker;
-    private MoveToAction hideLevelFilePicker;
-
     public VisImageTextButton activeModelButton;
+
+    private static class FilePicker {
+        private boolean isShown;
+
+        private VisWindow window;
+        private VisList<String> list;
+
+        private MoveToAction showAction;
+        private MoveToAction hideAction;
+    }
+    private final FilePicker filePicker = new FilePicker();
 
     private static class Settings {
         boolean isShown;
@@ -77,6 +85,8 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         final Rectangle boundsHidden  = new Rectangle();
     }
     private final Settings settings = new Settings();
+
+    private VisTextField levelSaveNameTextField;
 
     public UserInterfaceSystem(EditorScreen screen, Assets assets, Engine engine) {
         this.assets = assets;
@@ -367,53 +377,78 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         // --------------------------------
         // level file picker
         {
+            var width = 200f;
+            var height = 150f;
+
+            filePicker.isShown = false;
+
             var originalStyle = skin.get(VisList.ListStyle.class);
             var style = new List.ListStyle(originalStyle);
             style.background = new NinePatchDrawable(Assets.Patch.glass.drawable);
 
-            levelFileList = new VisList<>(style);
-            levelFileList.setWidth(200f);
+            filePicker.list = new VisList<>(style);
             updateLevelFilePickerItems();
 
-            var showLevelFilePickerDuration = 0.1f;
-            var hideLevelFilePickerDuration = 0.05f;
+            var button = new VisTextButton("Load");
+            button.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    var selection = filePicker.list.getSelected();
+                    loadLevelData(selection + ".json");
 
-            showLevelFilePicker = new MoveToAction();
-            showLevelFilePicker.setDuration(showLevelFilePickerDuration);
-            showLevelFilePicker.setPosition(
-                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
-                    camera.viewportHeight / 2f - levelFileList.getHeight() / 2f);
+                    filePicker.isShown = false;
+                    filePicker.hideAction.reset();
+                    filePicker.window.addAction(filePicker.hideAction);
+                }
+            });
 
-            hideLevelFilePicker = new MoveToAction();
-            hideLevelFilePicker.setDuration(hideLevelFilePickerDuration);
-            hideLevelFilePicker.setPosition(
-                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
-                    -levelFileList.getHeight());
+            var showDuration = 0.1f;
+            var hideDuration = 0.05f;
+            var hiddenPosition = new Vector2(camera.viewportWidth - width - 100f, -height);
+            var visiblePosition = new Vector2(camera.viewportWidth - width - 100f, 25f);
 
-            // start hidden
-            levelFileList.setPosition(
-                    camera.viewportWidth / 2f - levelFileList.getWidth() / 2f,
-                    -levelFileList.getHeight());
+            filePicker.showAction = new MoveToAction();
+            filePicker.showAction.setDuration(showDuration);
+            filePicker.showAction.setPosition(visiblePosition.x, visiblePosition.y);
 
-            stage.addActor(levelFileList);
+            filePicker.hideAction = new MoveToAction();
+            filePicker.hideAction.setDuration(hideDuration);
+            filePicker.hideAction.setPosition(hiddenPosition.x, hiddenPosition.y);
+
+            filePicker.window = new VisWindow("Level files");
+            filePicker.window.setSize(width, height);
+            filePicker.window.setPosition(hiddenPosition.x, hiddenPosition.y);
+            filePicker.window.setModal(false);
+            filePicker.window.setMovable(false);
+            filePicker.window.setKeepWithinStage(false);
+
+            filePicker.window.add(filePicker.list).grow().row();
+            filePicker.window.add(button).growX();
+
+            stage.addActor(filePicker.window);
         }
 
         // --------------------------------
         // top level buttons
-        // TODO - add a text field for the current level name
         {
-            var width = 70;
+            var width = 100;
             var height = 50;
 
-            var loadLevelButton = new VisTextButton("Load");
+            var loadLevelButton = new VisTextButton("List...");
             loadLevelButton.setSize(width, height);
             loadLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    // TODO - trigger this when clicking on a filename to load from the file picker ui
-                    loadLevelData("test.json");
-                    showLevelFilePicker.reset();
-                    levelFileList.addAction(showLevelFilePicker);
+                    if (filePicker.isShown) {
+                        filePicker.isShown = false;
+                        filePicker.hideAction.reset();
+                        filePicker.window.addAction(filePicker.hideAction);
+                    } else {
+                        filePicker.isShown = true;
+                        filePicker.showAction.reset();
+                        filePicker.window.addAction(filePicker.showAction);
+                        updateLevelFilePickerItems();
+                    }
                 }
             });
 
@@ -422,9 +457,12 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             saveLevelButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    saveLevelData("test.json");
-                    hideLevelFilePicker.reset();
-                    levelFileList.addAction(hideLevelFilePicker);
+                    var filename = levelSaveNameTextField.getText();
+                    saveLevelData(filename + ".json");
+
+                    filePicker.isShown = false;
+                    filePicker.hideAction.reset();
+                    filePicker.window.addAction(filePicker.hideAction);
                 }
             });
 
@@ -436,13 +474,20 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
             var levelsWindow = new VisWindow("Levels", style);
             levelsWindow.setSize(width, 2 * height);
-            levelsWindow.setPosition(camera.viewportWidth - width, 0);
+            levelsWindow.setPosition(camera.viewportWidth - width, 25);
 
             levelsWindow.defaults().padTop(5f);
             levelsWindow.add(loadLevelButton).growX().row();
-            levelsWindow.add(saveLevelButton).growX();
+            levelsWindow.add(saveLevelButton).growX().row();
 
             stage.addActor(levelsWindow);
+
+            levelSaveNameTextField = new VisTextField("test");
+            levelSaveNameTextField.setWidth(300);
+            levelSaveNameTextField.setPosition(camera.viewportWidth - levelSaveNameTextField.getWidth(), 0);
+            var h = levelSaveNameTextField.getHeight();
+            stage.addActor(levelSaveNameTextField);
+
         }
     }
 
@@ -498,7 +543,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
         if (levelFileLabels.isEmpty()) {
             levelFileLabels.add("[no files available]");
         }
-        levelFileList.setItems(levelFileLabels);
+        filePicker.list.setItems(levelFileLabels);
     }
 
     @Data

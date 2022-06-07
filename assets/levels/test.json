@@ -3,24 +3,19 @@
 	{
 		"x": -1,
 		"z": -1,
-		"yRotation": 0,
 		"modelType": "corner"
 	},
 	{
-		"x": 0,
 		"z": -1,
 		"yRotation": -90,
 		"modelType": "corner"
 	},
 	{
-		"x": 0,
-		"z": 0,
 		"yRotation": 180,
 		"modelType": "corner"
 	},
 	{
 		"x": -1,
-		"z": 0,
 		"yRotation": 90,
 		"modelType": "corner"
 	}

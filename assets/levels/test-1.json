@@ -1,0 +1,52 @@
+{
+"tileInfos": [
+	{
+		"x": -1,
+		"z": -1,
+		"yRotation": -90,
+		"modelType": "bump_down_walls"
+	},
+	{
+		"yRotation": 180,
+		"modelType": "corner_square_a"
+	},
+	{
+		"z": -1,
+		"yRotation": 270,
+		"modelType": "corner_square_a"
+	},
+	{
+		"x": -1,
+		"modelType": "corner_square_a"
+	},
+	{
+		"x": -2,
+		"z": -1,
+		"yRotation": 90,
+		"modelType": "start"
+	},
+	{
+		"x": -1,
+		"z": 1,
+		"yRotation": 90,
+		"modelType": "round_corner_a"
+	},
+	{
+		"z": 1,
+		"yRotation": -90,
+		"modelType": "ramp_square"
+	},
+	{
+		"x": 1,
+		"z": 1,
+		"yRotation": -90,
+		"modelType": "narrow_square"
+	},
+	{
+		"x": 2,
+		"z": 1,
+		"yRotation": -90,
+		"modelType": "hole_square"
+	}
+]
+}
