@@ -47,6 +47,70 @@
 		"z": 1,
 		"yRotation": -90,
 		"modelType": "hole_square"
+	},
+	{
+		"x": -1,
+		"z": -2,
+		"modelType": "block"
+	},
+	{
+		"z": -2,
+		"modelType": "block"
+	},
+	{
+		"x": 1,
+		"z": -2,
+		"modelType": "block"
+	},
+	{
+		"x": 1,
+		"z": -1,
+		"modelType": "block"
+	},
+	{
+		"x": 1,
+		"modelType": "block"
+	},
+	{
+		"x": 2,
+		"modelType": "block"
+	},
+	{
+		"x": 3,
+		"modelType": "block"
+	},
+	{
+		"x": 3,
+		"z": 1,
+		"modelType": "block"
+	},
+	{
+		"x": 3,
+		"z": 2,
+		"modelType": "block"
+	},
+	{
+		"x": 2,
+		"z": 2,
+		"modelType": "block"
+	},
+	{
+		"x": 1,
+		"z": 2,
+		"modelType": "block"
+	},
+	{
+		"z": 2,
+		"modelType": "block"
+	},
+	{
+		"x": -2,
+		"z": -2,
+		"modelType": "block"
+	},
+	{
+		"x": -2,
+		"modelType": "block"
 	}
 ]
 }

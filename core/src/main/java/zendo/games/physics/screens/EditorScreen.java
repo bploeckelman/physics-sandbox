@@ -39,9 +39,6 @@ public class EditorScreen extends BaseScreen {
 
     private static final String TAG = EditorScreen.class.getSimpleName();
 
-    public enum Mode { edit, play}
-    private Mode mode;
-
     private final Scene scene;
 
     private final ProviderSystem providerSystem;
@@ -95,7 +92,7 @@ public class EditorScreen extends BaseScreen {
 
         this.editInfo = new EditInfo();
 
-        setMode(Mode.edit);
+        setMode(UserInterfaceSystem.Mode.edit);
     }
 
     @Override
@@ -156,9 +153,9 @@ public class EditorScreen extends BaseScreen {
         userInterfaceSystem.render(windowCamera, assets.batch);
     }
 
-    private void setMode(Mode mode) {
-        this.mode = mode;
-        if (mode == Mode.play) {
+    public void setMode(UserInterfaceSystem.Mode mode) {
+        userInterfaceSystem.mode = mode;
+        if (mode == UserInterfaceSystem.Mode.play) {
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
         } else {
@@ -172,13 +169,13 @@ public class EditorScreen extends BaseScreen {
         engine.getSystem(UserInterfaceSystem.class).console.resetInputProcessing();
     }
 
-    private void toggleMode() {
-        if (mode == Mode.play) {
-            mode = Mode.edit;
+    public void toggleMode() {
+        if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.play) {
+            userInterfaceSystem.mode = UserInterfaceSystem.Mode.edit;
             worldCamera = orthoCamera;
             cameraController = new TopDownCameraController(worldCamera);
         } else {
-            mode = Mode.play;
+            userInterfaceSystem.mode = UserInterfaceSystem.Mode.play;
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
         }
@@ -202,13 +199,13 @@ public class EditorScreen extends BaseScreen {
             }
             case Keys.ENTER -> {
                 toggleMode();
-                if (mode == Mode.play) {
+                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.play) {
                     userInterfaceSystem.hideSettings();
                 }
                 return true;
             }
             case Keys.TAB -> {
-                if (mode == Mode.edit) {
+                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.edit) {
                     userInterfaceSystem.toggleSettings();
                 }
                 return true;

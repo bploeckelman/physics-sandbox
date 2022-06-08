@@ -15,7 +15,9 @@ import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.MoveToAction;
 import com.badlogic.gdx.scenes.scene2d.ui.ButtonGroup;
@@ -47,7 +49,8 @@ import java.nio.charset.StandardCharsets;
 public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
     private static final String TAG = UserInterfaceSystem.class.getSimpleName();
-    
+
+    private final EditorScreen screen;
     private final Assets assets;
     private final Engine engine;
     private final Stage stage;
@@ -58,6 +61,9 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public final ConsoleCommandExecutor commandExecutor;
 
     public VisImageTextButton activeModelButton;
+
+    public enum Mode { edit, play }
+    public Mode mode = Mode.edit;
 
     private static class FilePicker {
         private boolean isShown;
@@ -89,6 +95,7 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     private VisTextField levelSaveNameTextField;
 
     public UserInterfaceSystem(EditorScreen screen, Assets assets, Engine engine) {
+        this.screen = screen;
         this.assets = assets;
         this.engine = engine;
 
@@ -165,14 +172,15 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             var layout = assets.layout;
 
             var text = Integer.toString(Gdx.graphics.getFramesPerSecond(), 10);
-            layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.right, false);
+            layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.left, false);
             font.draw(batch, layout, 0, camera.viewportHeight);
+            var fpsHeight = layout.height;
 
             font = assets.smallFont;
             var namedEntities = engine.getEntitiesFor(ComponentFamilies.names);
             text = "Entities: " + namedEntities.size();
             layout.setText(font, text, Color.WHITE, camera.viewportWidth, Align.left, false);
-            font.draw(batch, layout, 0, camera.viewportHeight);
+            font.draw(batch, layout, 0, camera.viewportHeight - fpsHeight - 10);
         }
         batch.end();
 
@@ -332,6 +340,17 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             }
             var scrollPane = new VisScrollPane(scrollTable);
             scrollPane.setFillParent(true);
+            scrollPane.addListener(new InputListener() {
+                @Override
+                public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+                    stage.setScrollFocus(scrollPane);
+                }
+                @Override
+                public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+                    stage.setScrollFocus(null);
+                }
+            });
+
             settings.window.addActor(scrollPane);
 
             stage.addActor(settings.window);
@@ -485,9 +504,25 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
             levelSaveNameTextField = new VisTextField("test");
             levelSaveNameTextField.setWidth(300);
             levelSaveNameTextField.setPosition(camera.viewportWidth - levelSaveNameTextField.getWidth(), 0);
-            var h = levelSaveNameTextField.getHeight();
+
             stage.addActor(levelSaveNameTextField);
 
+            var editModeText = "Start Playing";
+            var playModeText = "Start Editing";
+            var modeToggleButton = new VisTextButton(mode == Mode.edit ? editModeText : playModeText);
+            modeToggleButton.setSize(100, 50);
+            modeToggleButton.setPosition(
+                    camera.viewportWidth - modeToggleButton.getWidth(),
+                    camera.viewportHeight - modeToggleButton.getHeight());
+            modeToggleButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    screen.toggleMode();
+                    modeToggleButton.setText((mode == Mode.edit) ? editModeText : playModeText);
+                }
+            });
+
+            stage.addActor(modeToggleButton);
         }
     }
 
