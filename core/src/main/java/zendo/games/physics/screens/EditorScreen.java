@@ -154,7 +154,6 @@ public class EditorScreen extends BaseScreen {
     }
 
     public void setMode(UserInterfaceSystem.Mode mode) {
-        userInterfaceSystem.mode = mode;
         if (mode == UserInterfaceSystem.Mode.play) {
             worldCamera = perspectiveCamera;
             cameraController = new FreeCameraController(worldCamera);
@@ -162,6 +161,9 @@ public class EditorScreen extends BaseScreen {
             worldCamera = orthoCamera;
             cameraController = new TopDownCameraController(worldCamera);
         }
+
+        userInterfaceSystem.mode = mode;
+        userInterfaceSystem.toggleModeButton.setText(userInterfaceSystem.mode.buttonText);
 
         var mux = new InputMultiplexer(userInterfaceSystem.getInputProcessor(), this, cameraController);
         Gdx.input.setInputProcessor(mux);
@@ -180,6 +182,8 @@ public class EditorScreen extends BaseScreen {
             cameraController = new FreeCameraController(worldCamera);
         }
 
+        userInterfaceSystem.toggleModeButton.setText(userInterfaceSystem.mode.buttonText);
+
         var mux = new InputMultiplexer(userInterfaceSystem.getInputProcessor(), this, cameraController);
         Gdx.input.setInputProcessor(mux);
         // restore the in-game console to the input multiplexer
@@ -197,19 +201,8 @@ public class EditorScreen extends BaseScreen {
                 Gdx.app.exit();
                 return true;
             }
-            case Keys.ENTER -> {
-                toggleMode();
-                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.play) {
-                    userInterfaceSystem.hideSettings();
-                }
-                return true;
-            }
-            case Keys.TAB -> {
-                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.edit) {
-                    userInterfaceSystem.toggleSettings();
-                }
-                return true;
-            }
+
+            // debug
             case Keys.NUM_1 -> {
                 Config.Debug.wireframe = !Config.Debug.wireframe;
                 return true;
@@ -218,12 +211,25 @@ public class EditorScreen extends BaseScreen {
                 Config.Debug.physics = !Config.Debug.physics;
                 return true;
             }
-            case Keys.SPACE -> {
-                if (worldCamera instanceof PerspectiveCamera) {
-                    EntityFactory.createShot(engine, worldCamera);
+
+            // edit ui toggle
+            case Keys.TAB -> {
+                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.edit) {
+                    userInterfaceSystem.toggleSettings();
                 }
                 return true;
             }
+
+            // mode toggle
+            case Keys.SPACE -> {
+                toggleMode();
+                if (userInterfaceSystem.mode == UserInterfaceSystem.Mode.play) {
+                    userInterfaceSystem.hideSettings();
+                }
+                return true;
+            }
+
+            // rotate held tile --------------------------------
             case Keys.F -> {
                 if (worldCamera instanceof OrthographicCamera) {
                     if (editInfo.isHolding()) {
@@ -239,22 +245,6 @@ public class EditorScreen extends BaseScreen {
                     }
                 }
             }
-            // TESTING -------------------------------
-//            case Keys.PLUS -> {
-//                engine.addEntity(engine.createEntity()
-//                        .add(new NameComponent("TEST" + componentCount++)));
-//                return true;
-//            }
-//            case Keys.DEL -> {
-//                var entities = engine.getEntities();
-//                if (entities.size() > 0) {
-//                    int random = MathUtils.random(0, entities.size() - 1);
-//                    var entity = entities.get(random);
-//                    engine.removeEntity(entity);
-//                    return true;
-//                }
-//            }
-            // TESTING -------------------------------
         }
         return super.keyUp(keycode);
     }

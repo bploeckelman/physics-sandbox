@@ -35,6 +35,7 @@ import com.strongjoshua.console.GUIConsole;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import zendo.games.physics.Assets;
 import zendo.games.physics.scene.components.TileComponent;
 import zendo.games.physics.scene.components.utils.ComponentFamilies;
@@ -61,8 +62,16 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
     public final ConsoleCommandExecutor commandExecutor;
 
     public VisImageTextButton activeModelButton;
+    public VisTextButton toggleModeButton;
 
-    public enum Mode { edit, play }
+    // TODO - move this out to a state object or entity with a special type of component
+    @RequiredArgsConstructor
+    public enum Mode {
+          edit("Click to play")
+        , play("Space to edit")
+        ;
+        public final String buttonText;
+    }
     public Mode mode = Mode.edit;
 
     private static class FilePicker {
@@ -509,20 +518,19 @@ public class UserInterfaceSystem extends EntitySystem implements Disposable {
 
             var editModeText = "Start Playing";
             var playModeText = "Start Editing";
-            var modeToggleButton = new VisTextButton(mode == Mode.edit ? editModeText : playModeText);
-            modeToggleButton.setSize(100, 50);
-            modeToggleButton.setPosition(
-                    camera.viewportWidth - modeToggleButton.getWidth(),
-                    camera.viewportHeight - modeToggleButton.getHeight());
-            modeToggleButton.addListener(new ClickListener() {
+            toggleModeButton = new VisTextButton(mode == Mode.edit ? editModeText : playModeText);
+            toggleModeButton.setSize(100, 50);
+            toggleModeButton.setPosition(
+                    camera.viewportWidth - toggleModeButton.getWidth(),
+                    camera.viewportHeight - toggleModeButton.getHeight());
+            toggleModeButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     screen.toggleMode();
-                    modeToggleButton.setText((mode == Mode.edit) ? editModeText : playModeText);
                 }
             });
 
-            stage.addActor(modeToggleButton);
+            stage.addActor(toggleModeButton);
         }
     }
 
